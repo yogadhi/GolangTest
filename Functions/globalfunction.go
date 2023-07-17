@@ -3,11 +3,15 @@ package globalfunction
 import (
 	"bytes"
 	"compress/flate"
+	"crypto/aes"
+	"crypto/cipher"
+	crand "crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"image"
 	"image/color"
 	"image/png"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"os"
 	"strings"
@@ -17,8 +21,7 @@ import (
 	"github.com/boombuler/barcode/qr"
 	"github.com/makiuchi-d/gozxing"
 	"github.com/makiuchi-d/gozxing/oned"
-	"github.com/pdfcpu/pdfcpu/pkg/api"
-	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
+	"golang.org/x/sys/windows/registry"
 )
 
 const (
@@ -29,6 +32,12 @@ const (
 )
 
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+const (
+	keyPath    = `SOFTWARE\MyApp`
+	valueName  = "MyValue"
+	defaultVal = "Default Value"
+)
 
 var (
 	// Mapping of characters to barcode pattern
@@ -243,41 +252,133 @@ func FindUnique(arr1, arr2 []string) []string {
 	return unique
 }
 
-func AttachBarcodeToPDF(inputPDF string, barcodeImage string, outputPDF string) error {
-	// Read the input PDF file
-	pdfContent, err := ioutil.ReadFile(inputPDF)
+func Encrypt(plainText, key []byte) (string, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+
+	// Generate a random initialization vector (IV)
+	iv := make([]byte, aes.BlockSize)
+	if _, err := io.ReadFull(crand.Reader, iv); err != nil {
+		return "", err
+	}
+
+	// Apply AES encryption in CBC mode
+	ciphertext := make([]byte, aes.BlockSize+len(plainText))
+	ivCopy := ciphertext[:aes.BlockSize]
+	copy(ivCopy, iv)
+	cfb := cipher.NewCFBEncrypter(block, ivCopy)
+	cfb.XORKeyStream(ciphertext[aes.BlockSize:], plainText)
+
+	// Encode the encrypted data in base64
+	encrypted := base64.StdEncoding.EncodeToString(ciphertext)
+	return encrypted, nil
+}
+
+func Decrypt(encrypted string, key []byte) (string, error) {
+	ciphertext, err := base64.StdEncoding.DecodeString(encrypted)
+	if err != nil {
+		return "", err
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+
+	if len(ciphertext) < aes.BlockSize {
+		return "", fmt.Errorf("invalid ciphertext length")
+	}
+
+	iv := ciphertext[:aes.BlockSize]
+	ciphertext = ciphertext[aes.BlockSize:]
+
+	// Apply AES decryption in CBC mode
+	cfb := cipher.NewCFBDecrypter(block, iv)
+	cfb.XORKeyStream(ciphertext, ciphertext)
+
+	return string(ciphertext), nil
+}
+
+func GenerateEncryptionKey() ([]byte, error) {
+	key := make([]byte, 32)
+	_, err := crand.Read(key)
+	if err != nil {
+		return nil, err
+	}
+	return key, nil
+}
+
+func SaveToRegistry(value string) error {
+	// Open the registry key
+	key, _, err := registry.CreateKey(registry.CURRENT_USER, keyPath, registry.ALL_ACCESS)
+	if err != nil {
+		return err
+	}
+	defer key.Close()
+
+	// Set the string value in the registry key
+	err = key.SetStringValue(valueName, value)
 	if err != nil {
 		return err
 	}
 
-	// Create a new PDF context from the input PDF
-	ctx, err := pdfcpu.Read(pdfContent, pdfcpu.NewDefaultConfiguration())
-	if err != nil {
-		return err
-	}
-
-	// Read the barcode image
-	barcodeContent, err := ioutil.ReadFile(barcodeImage)
-	if err != nil {
-		return err
-	}
-
-	// Add a new page to the PDF for the barcode
-	ctx.AddPage()
-	pageCount := len(ctx.PageList)
-
-	// Add the barcode image to the new page
-	err = ctx.AddImageFromBytes(barcodeContent, pdfcpu.ImageHandlingSkip, pageCount, nil)
-	if err != nil {
-		return err
-	}
-
-	// Write the modified PDF to the output file
-	err = api.WritePDFFile(ctx, outputPDF)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("Barcode attached to PDF and saved to: %s\n", outputPDF)
 	return nil
 }
+
+func GetFromRegistry() (string, error) {
+	// Open the registry key
+	key, err := registry.OpenKey(registry.CURRENT_USER, keyPath, registry.READ)
+	if err != nil {
+		return "", err
+	}
+	defer key.Close()
+
+	// Read the string value from the registry key
+	value, _, err := key.GetStringValue(valueName)
+	if err != nil {
+		return "", err
+	}
+
+	return value, nil
+}
+
+// func AttachBarcodeToPDF(inputPDF string, barcodeImage string, outputPDF string) error {
+// 	// Read the input PDF file
+// 	pdfContent, err := ioutil.ReadFile(inputPDF)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	// Create a new PDF context from the input PDF
+// 	ctx, err := pdfcpu.Read(pdfContent, pdfcpu.NewDefaultConfiguration())
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	// Read the barcode image
+// 	barcodeContent, err := ioutil.ReadFile(barcodeImage)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	// Add a new page to the PDF for the barcode
+// 	ctx.AddPage()
+// 	pageCount := len(ctx.PageList)
+
+// 	// Add the barcode image to the new page
+// 	err = ctx.AddImageFromBytes(barcodeContent, pdfcpu.ImageHandlingSkip, pageCount, nil)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	// Write the modified PDF to the output file
+// 	err = api.WritePDFFile(ctx, outputPDF)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	fmt.Printf("Barcode attached to PDF and saved to: %s\n", outputPDF)
+// 	return nil
+// }
