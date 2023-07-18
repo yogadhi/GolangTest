@@ -4,73 +4,80 @@ import (
 	gf "GolangTest/Functions"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"time"
 )
 
 func main() {
+	logger, err := gf.InitializeLog("app.log")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 	date := time.Now()
 	maxLength := 16
 	data := gf.GenerateRandomStringWithDate(date, maxLength)
-	fmt.Println("Random string : " + data)
+	logger.Log("Random string : " + data)
 
+	barcodeWidth := 200
+	barcodeHeight := 75
 	barcodeFilename := "barcode.png"
 	qrCodeFilename := "qrcode.png"
 
-	err := gf.GenerateBarcode(data, barcodeFilename, 200, 75)
+	err = gf.GenerateBarcode(data, barcodeFilename, barcodeWidth, barcodeHeight)
 	if err != nil {
-		log.Fatal(err)
+		logger.Log(err.Error())
 	}
 
 	err = gf.GenerateQRCode(data, qrCodeFilename)
 	if err != nil {
-		log.Fatal(err)
+		logger.Log(err.Error())
 	}
 
-	// key := []byte("01234567890123456789012345678901")
-
-	key, err := gf.GenerateEncryptionKey()
+	registryKey := "GeneratedPassword"
+	encryptionkey, err := gf.GenerateEncryptionKey()
 	if err != nil {
-		fmt.Println("Error generating encryption key:", err)
+		logger.Log("Error generating encryption key : " + err.Error())
 		return
 	}
 
-	// Convert the key to a hexadecimal string for display or storage
-	keyString := hex.EncodeToString(key)
-	fmt.Println("Generated Encryption Key:", keyString)
+	keyString := hex.EncodeToString(encryptionkey)
+	logger.Log("Generated Encryption Key : " + keyString)
 
-	plainText := "Hello, World!"
-	fmt.Println("Plain Text:", plainText)
+	plainText := gf.GeneratePassword(12)
+	logger.Log("Plain Text : " + plainText)
 
-	encrypted, err := gf.Encrypt([]byte(plainText), key)
+	encrypted, err := gf.Encrypt([]byte(plainText), encryptionkey)
 	if err != nil {
-		fmt.Println("Encryption error:", err)
+		logger.Log("Encryption error : " + err.Error())
+		return
+	}
+	logger.Log("Encrypted Text : " + encrypted)
+
+	err = gf.SaveToRegistry(registryKey, encrypted)
+	if err != nil {
+		logger.Log("Error saving value to the registry : " + err.Error())
 		return
 	}
 
-	fmt.Println("Encrypted Text:", encrypted)
-
-	decrypted, err := gf.Decrypt(encrypted, key)
-	if err != nil {
-		fmt.Println("Decryption error:", err)
-		return
-	}
-
-	fmt.Println("Decrypted Text:", decrypted)
-
-	err = gf.SaveToRegistry("Hello, Registry!")
-	if err != nil {
-		fmt.Println("Error saving value to the registry:", err)
-		return
-	}
-
-	// Get the value from the registry
-	value, errx := gf.GetFromRegistry()
+	value, errx := gf.GetFromRegistry(registryKey)
 	if errx != nil {
-		fmt.Println("Error getting value from the registry:", errx)
+		logger.Log("Error getting value from the registry : " + errx.Error())
 		return
 	}
+	logger.Log("Value retrieved from the registry : " + value)
 
-	fmt.Println("Value retrieved from the registry:", value)
+	decrypted, err := gf.Decrypt(value, encryptionkey)
+	if err != nil {
+		logger.Log("Decryption error : " + err.Error())
+		return
+	}
+	logger.Log("Decrypted Text : " + decrypted)
 
+	// err = gf.DeleteRegistryValue(registryKey)
+	// if err != nil {
+	// 	fmt.Println("Error deleting registry value:", err)
+	// 	return
+	// }
+	// fmt.Println("Registry value deleted successfully.")
 }

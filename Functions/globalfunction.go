@@ -12,6 +12,8 @@ import (
 	"image/color"
 	"image/png"
 	"io"
+	"log"
+	"math/big"
 	"math/rand"
 	"os"
 	"strings"
@@ -25,18 +27,22 @@ import (
 )
 
 const (
-	// Barcode parameters
+	//Registry Path
+	keyPath = `SOFTWARE\GolangTest`
+
+	//GenerateRandomStringWithDate
+	charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+	//GenerateBarcodeCustom
 	barWidth  = 4
 	barHeight = 200
 	textSize  = 20
-)
 
-const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-const (
-	keyPath    = `SOFTWARE\MyApp`
-	valueName  = "MyValue"
-	defaultVal = "Default Value"
+	//GeneratePassword
+	uppercaseLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	lowercaseLetters = "abcdefghijklmnopqrstuvwxyz"
+	digits           = "0123456789"
+	specialChars     = "!@#$%^&*()-_=+,.?/:;{}[]~"
 )
 
 var (
@@ -124,7 +130,7 @@ func GenerateBarcode(data string, filename string, width, height int) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Barcode generated and saved to: " + filename)
+	log.Println("Barcode generated and saved to : " + filename)
 	return nil
 }
 
@@ -170,7 +176,7 @@ func GenerateBarcodeCustom(data string, filename string) error {
 		return err
 	}
 
-	fmt.Printf("Barcode generated and saved to: %s\n", filename)
+	log.Printf("Barcode generated and saved to : %s\n", filename)
 	return nil
 }
 
@@ -223,7 +229,7 @@ func GenerateQRCode(data string, filename string) error {
 		return err
 	}
 
-	fmt.Printf("QR code generated and saved to: %s\n", filename)
+	log.Printf("QR code generated and saved to : %s\n", filename)
 	return nil
 }
 
@@ -310,7 +316,7 @@ func GenerateEncryptionKey() ([]byte, error) {
 	return key, nil
 }
 
-func SaveToRegistry(value string) error {
+func SaveToRegistry(keyVal, strVal string) error {
 	// Open the registry key
 	key, _, err := registry.CreateKey(registry.CURRENT_USER, keyPath, registry.ALL_ACCESS)
 	if err != nil {
@@ -319,7 +325,7 @@ func SaveToRegistry(value string) error {
 	defer key.Close()
 
 	// Set the string value in the registry key
-	err = key.SetStringValue(valueName, value)
+	err = key.SetStringValue(keyVal, strVal)
 	if err != nil {
 		return err
 	}
@@ -327,7 +333,7 @@ func SaveToRegistry(value string) error {
 	return nil
 }
 
-func GetFromRegistry() (string, error) {
+func GetFromRegistry(keyVal string) (string, error) {
 	// Open the registry key
 	key, err := registry.OpenKey(registry.CURRENT_USER, keyPath, registry.READ)
 	if err != nil {
@@ -336,12 +342,93 @@ func GetFromRegistry() (string, error) {
 	defer key.Close()
 
 	// Read the string value from the registry key
-	value, _, err := key.GetStringValue(valueName)
+	value, _, err := key.GetStringValue(keyVal)
 	if err != nil {
 		return "", err
 	}
 
 	return value, nil
+}
+
+func DeleteRegistryValue(keyVal string) error {
+	// Open the registry key
+	key, err := registry.OpenKey(registry.CURRENT_USER, keyPath, registry.ALL_ACCESS)
+	if err != nil {
+		return err
+	}
+	defer key.Close()
+
+	// Delete the value from the registry key
+	err = key.DeleteValue(keyVal)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func GeneratePassword(length int) string {
+	var (
+		chars  string
+		result strings.Builder
+	)
+
+	// Add characters based on the desired complexity
+	chars += uppercaseLetters
+	chars += lowercaseLetters
+	chars += digits
+	chars += specialChars
+
+	// Generate random password
+	for i := 0; i < length; i++ {
+		index, err := crand.Int(crand.Reader, big.NewInt(int64(len(chars))))
+		if err != nil {
+			log.Println("Error generating random number : ", err)
+			return ""
+		}
+		result.WriteByte(chars[index.Int64()])
+	}
+
+	return result.String()
+}
+
+func CalculateIdealBodyWeight(height float64, isMale bool) float64 {
+	var baseWeight float64
+
+	if isMale {
+		baseWeight = 52 + 1.9*(height-152.4)/2.54
+	} else {
+		baseWeight = 49 + 1.7*(height-152.4)/2.54
+	}
+
+	return baseWeight
+}
+
+type CustomLogger struct {
+	file   *os.File
+	logger *log.Logger
+}
+
+func (c *CustomLogger) Log(message string) {
+	c.logger.Println(message)
+	log.Println(message)
+}
+
+func (c *CustomLogger) Close() {
+	c.file.Close()
+}
+
+func InitializeLog(logFileName string) (*CustomLogger, error) {
+	file, err := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		return nil, err
+	}
+
+	logger := log.New(file, "", log.Ldate|log.Ltime)
+
+	return &CustomLogger{
+		file:   file,
+		logger: logger,
+	}, nil
 }
 
 // func AttachBarcodeToPDF(inputPDF string, barcodeImage string, outputPDF string) error {
@@ -379,6 +466,6 @@ func GetFromRegistry() (string, error) {
 // 		return err
 // 	}
 
-// 	fmt.Printf("Barcode attached to PDF and saved to: %s\n", outputPDF)
+// 	log.Printf("Barcode attached to PDF and saved to: %s\n", outputPDF)
 // 	return nil
 // }
