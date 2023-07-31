@@ -1,0 +1,26 @@
+package globalcontroller
+
+import (
+	gf "GolangTest/Functions"
+	eh "GolangTest/Handlers"
+	"encoding/base32"
+	"encoding/base64"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"time"
+
+	"github.com/gorilla/mux"
+)
+
+func GenerateOTP(w http.ResponseWriter, r *http.Request) {
+	eh.Block{
+		Try: func() {
+		},
+		Catch: func(e eh.Exception) {
+			ex := fmt.Sprint(e)
+			logger.Log(gf.GetFunctionName(HandleAPIRequests) + " " + ex)
+		},
+	}.Do()
+}

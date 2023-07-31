@@ -5,7 +5,9 @@ import (
 	"compress/flate"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	crand "crypto/rand"
+	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
 	"image"
@@ -16,6 +18,8 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
+	"reflect"
+	"runtime"
 	"strings"
 	"time"
 
@@ -23,6 +27,7 @@ import (
 	"github.com/boombuler/barcode/qr"
 	"github.com/makiuchi-d/gozxing"
 	"github.com/makiuchi-d/gozxing/oned"
+	"github.com/pquerna/otp/totp"
 	"golang.org/x/sys/windows/registry"
 )
 
@@ -39,10 +44,15 @@ const (
 	textSize  = 20
 
 	//GeneratePassword
-	uppercaseLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	lowercaseLetters = "abcdefghijklmnopqrstuvwxyz"
-	digits           = "0123456789"
-	specialChars     = "!@#$%^&*()-_=+,.?/:;{}[]~"
+	uppercaseLetters     = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	lowercaseLetters     = "abcdefghijklmnopqrstuvwxyz"
+	digits               = "0123456789"
+	specialChars         = "!@#$%^&*()-_=+,.?/:;{}[]~"
+	completeSpecialChars = "!@#$%^&*()_-+={}[]|:;'<>,.?/`~"
+
+	//TOTP
+	digitCount   = 6
+	timeStepSecs = 30
 )
 
 var (
@@ -64,6 +74,10 @@ var (
 	startMarker = "101"
 	endMarker   = "101"
 )
+
+func GetFunctionName(i interface{}) string {
+	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
+}
 
 func CompressBytes(input []byte) ([]byte, error) {
 	var b bytes.Buffer
@@ -90,12 +104,16 @@ func CompressBytes(input []byte) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func GenerateRandomStringWithDate(date time.Time, maxLength int) string {
-	dateStr := date.Format("20060102") // Format date as YYYYMMDD
+func GenerateRandomStringWithDate(isUsingDate bool, maxLength int) string {
+	str := ""
 
-	remainingLength := maxLength - len(dateStr)
+	if isUsingDate == true {
+		str = time.Now().Format("20060102") // Format date as YYYYMMDD
+	}
+
+	remainingLength := maxLength - len(str)
 	if remainingLength <= 0 {
-		return strings.ToUpper(dateStr)
+		return strings.ToUpper(str)
 	}
 
 	rand.Seed(time.Now().UnixNano())
@@ -105,7 +123,7 @@ func GenerateRandomStringWithDate(date time.Time, maxLength int) string {
 		b[i] = charset[rand.Intn(len(charset))]
 	}
 
-	randomString := fmt.Sprintf("%s%s", dateStr, string(b))
+	randomString := fmt.Sprintf("%s%s", str, string(b))
 	return strings.ToUpper(randomString)
 }
 
@@ -366,7 +384,7 @@ func DeleteRegistryValue(keyVal string) error {
 	return nil
 }
 
-func GeneratePassword(length int) string {
+func GeneratePassword(length int, isUsingCompleteSpecialChars bool) string {
 	var (
 		chars  string
 		result strings.Builder
@@ -376,7 +394,12 @@ func GeneratePassword(length int) string {
 	chars += uppercaseLetters
 	chars += lowercaseLetters
 	chars += digits
-	chars += specialChars
+
+	if isUsingCompleteSpecialChars {
+		chars += completeSpecialChars
+	} else {
+		chars += specialChars
+	}
 
 	// Generate random password
 	for i := 0; i < length; i++ {
@@ -429,6 +452,93 @@ func InitializeLog(logFileName string) (*CustomLogger, error) {
 		file:   file,
 		logger: logger,
 	}, nil
+}
+
+func RegistryNameExists(name string) bool {
+	k, err := registry.OpenKey(registry.CURRENT_USER, keyPath, registry.READ)
+	if err != nil {
+		return false
+	}
+	defer k.Close()
+
+	_, _, err = k.GetStringValue(name)
+	return err == nil
+}
+
+// GenerateBase64TOTP generates a Time-based One-Time Password (TOTP) for the given secret key.
+func GenerateBase64TOTP(secret string) (string, error) {
+	secret = strings.ToUpper(secret)
+	// decodedKey, err := base32.StdEncoding.DecodeString(secret)
+	decodedKey, err := base64.StdEncoding.DecodeString(secret)
+	if err != nil {
+		return "", err
+	}
+
+	interval := time.Now().Unix() / timeStepSecs
+	msg := make([]byte, 8)
+	for i := 7; i >= 0; i-- {
+		msg[i] = byte(interval & 0xFF)
+		interval >>= 8
+	}
+
+	hmacSha1 := hmac.New(sha1.New, decodedKey)
+	hmacSha1.Write(msg)
+	hmacResult := hmacSha1.Sum(nil)
+
+	offset := hmacResult[len(hmacResult)-1] & 0x0F
+	truncatedHash := BinaryToInt(hmacResult[offset:offset+4]) & 0x7FFFFFFF
+	otp := truncatedHash % PowerOfTen(digitCount)
+
+	return fmt.Sprintf("%0*d", digitCount, otp), nil
+}
+
+func BinaryToInt(data []byte) int {
+	val := 0
+	for _, b := range data {
+		val <<= 8
+		val |= int(b)
+	}
+	return val
+}
+
+func IsStringEmpty(str *string) bool {
+	if str == nil {
+		return true
+	}
+
+	trimmedStr := strings.TrimSpace(*str)
+	return trimmedStr == ""
+}
+
+func PowerOfTen(n int) int {
+	result := 1
+	for i := 0; i < n; i++ {
+		result *= 10
+	}
+	return result
+}
+
+func ValidateBase64TOTP(secret, otp string) bool {
+	generatedOTP, err := GenerateBase64TOTP(secret)
+	if err != nil {
+		return false
+	}
+
+	return otp == generatedOTP
+}
+
+func GenerateBase32TOTP(secret string) (string, error) {
+	otpCode, err := totp.GenerateCode(secret, time.Now())
+	if err != nil {
+		return "", err
+	} else {
+		return otpCode, nil
+	}
+}
+
+func ValidateBase32TOTP(secret, totpcode string) bool {
+	isValid := totp.Validate(totpcode, secret)
+	return isValid
 }
 
 // func AttachBarcodeToPDF(inputPDF string, barcodeImage string, outputPDF string) error {
