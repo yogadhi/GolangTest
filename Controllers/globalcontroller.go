@@ -8,7 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -17,13 +17,10 @@ import (
 )
 
 var (
-	logger, err = gf.InitializeLog("app.log")
+	logger, _          = gf.InitializeLog("app.log")
+	JWT_SIGNING_METHOD = jwt.SigningMethodHS256
+	SIGNATURE_KEY      = "aa20fbadd540eee90bc48834ba9be4d842510bd5fd356e78afbc01655369ee88"
 )
-
-var APPLICATION_NAME = "My Simple JWT App"
-var LOGIN_EXPIRATION_DURATION = time.Duration(1) * time.Hour
-var JWT_SIGNING_METHOD = jwt.SigningMethodHS256
-var SIGNATURE_KEY = "krNWrDNtlT2TVhbxg6LulRWEZ/qS9wXHaj4nwIvHtAg="
 
 func MiddlewareJWTAuthorization(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -51,6 +48,7 @@ func MiddlewareJWTAuthorization(next http.Handler) http.Handler {
 		})
 
 		if err != nil {
+			logger.Log(gf.GetFunctionName(MiddlewareJWTAuthorization) + " - " + err.Error())
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -70,6 +68,9 @@ func MiddlewareJWTAuthorization(next http.Handler) http.Handler {
 
 func MiddlewareAuthorization(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		IPAddress := gf.ReadUserIP(r)
+		logger.Log(IPAddress + " - " + r.URL.Path)
+
 		authorizationHeader := r.Header.Get("Authorization")
 		if !strings.Contains(authorizationHeader, "Bearer") {
 			http.Error(w, "Invalid token", http.StatusBadRequest)
@@ -78,13 +79,7 @@ func MiddlewareAuthorization(next http.Handler) http.Handler {
 
 		tokenString := strings.Replace(authorizationHeader, "Bearer ", "", -1)
 
-		encryptionkey, err := base64.StdEncoding.DecodeString(SIGNATURE_KEY)
-		if err != nil {
-			http.Error(w, "Invalid token", http.StatusBadRequest)
-			return
-		}
-
-		token := gf.Decrypt(string(encryptionkey), tokenString)
+		token := gf.Decrypt(SIGNATURE_KEY, tokenString)
 		fmt.Println(token)
 
 		tokenArr := strings.Split(token, "|")
@@ -107,6 +102,11 @@ func MiddlewareAuthorization(next http.Handler) http.Handler {
 func GenerateOTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 
+	if r.Method != "POST" {
+		http.Error(w, "Unsupported http method", http.StatusBadRequest)
+		return
+	}
+
 	var req jsm.GenerateOTPReq
 	res := jsm.GenerateOTPRes{
 		TOTP:   "",
@@ -115,11 +115,10 @@ func GenerateOTP(w http.ResponseWriter, r *http.Request) {
 
 	eh.Block{
 		Try: func() {
-			logger.Log(gf.GetFunctionName(GenerateOTP))
-
-			reqBody, _ := ioutil.ReadAll(r.Body)
+			reqBody, _ := io.ReadAll(r.Body)
 			err := json.Unmarshal(reqBody, &req)
 			if err != nil {
+				logger.Log(gf.GetFunctionName(GenerateOTP) + " - " + err.Error())
 				res.ErrMsg = err.Error()
 				json.NewEncoder(w).Encode(res)
 				return
@@ -135,6 +134,7 @@ func GenerateOTP(w http.ResponseWriter, r *http.Request) {
 			if !gf.IsStringEmpty(&encryptionKeyStr) {
 				res.TOTP, err = gf.GenerateBase64TOTP(encryptionKeyStr)
 				if err != nil {
+					logger.Log(gf.GetFunctionName(GenerateOTP) + " - " + err.Error())
 					res.ErrMsg = err.Error()
 				} else {
 					res.DateExp = timeStart.Add(30 * time.Second).Format("2006-01-02 15:04:05")
@@ -144,7 +144,7 @@ func GenerateOTP(w http.ResponseWriter, r *http.Request) {
 		},
 		Catch: func(e eh.Exception) {
 			ex := fmt.Sprint(e)
-			logger.Log(gf.GetFunctionName(GenerateOTP) + " " + ex)
+			logger.Log(gf.GetFunctionName(GenerateOTP) + " - " + ex)
 		},
 	}.Do()
 }

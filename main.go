@@ -14,17 +14,16 @@ import (
 )
 
 var (
-	logger, err   = gf.InitializeLog("app.log")
+	logger, _     = gf.InitializeLog("app.log")
 	SIGNATURE_KEY = "aa20fbadd540eee90bc48834ba9be4d842510bd5fd356e78afbc01655369ee88"
 )
 
 func main() {
-	fmt.Println(gf.GenerateKeyString())
-
-	enc := gf.Encrypt(keyStr, "001|Yoga|Quote123!")
-	dec := gf.Decrypt(keyStr, enc)
-	fmt.Println(keyStr, enc, dec)
-	// HandleAPIRequests()
+	// fmt.Println(gf.GenerateUUID(false))
+	// enc := gf.Encrypt(SIGNATURE_KEY, "e8999895741a4ef49c9ddf62a7409640|Yoga|Quote123!")
+	// dec := gf.Decrypt(SIGNATURE_KEY, enc)
+	// fmt.Println(SIGNATURE_KEY, enc, dec)
+	HandleAPIRequests()
 }
 
 // homePage Function
@@ -38,11 +37,9 @@ func HandleAPIRequests() {
 		Try: func() {
 			port := "8080"
 			myRouter := mux.NewRouter()
-
 			api := myRouter.PathPrefix("/MiniAPI").Subrouter()
 			api.Handle("/", controller.MiddlewareAuthorization(http.HandlerFunc(homePage)))
-			api.HandleFunc("/", homePage)
-			api.HandleFunc("/GenerateOTP", controller.GenerateOTP).Methods("POST")
+			api.Handle("/GenerateOTP", controller.MiddlewareAuthorization(http.HandlerFunc(controller.GenerateOTP)))
 
 			if os.Getenv("ASPNETCORE_PORT") != "" {
 				port = os.Getenv("ASPNETCORE_PORT")

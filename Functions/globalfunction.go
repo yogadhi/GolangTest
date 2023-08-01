@@ -1,8 +1,6 @@
 package globalfunction
 
 import (
-	"bytes"
-	"compress/flate"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
@@ -19,6 +17,8 @@ import (
 	"log"
 	"math/big"
 	"math/rand"
+	"net"
+	"net/http"
 	"os"
 	"reflect"
 	"runtime"
@@ -79,7 +79,7 @@ var (
 	startMarker = "101"
 	endMarker   = "101"
 
-	encryptionKey = "8b97bc798333fbb6dc58bf277e3fb8ace4dcfa9b509c830e53bcde9bdab382d3"
+	// encryptionKey = "8b97bc798333fbb6dc58bf277e3fb8ace4dcfa9b509c830e53bcde9bdab382d3"
 )
 
 func GroupedFunction() {
@@ -99,15 +99,9 @@ func GroupedFunction() {
 	var generatedPwd string
 	var totp string
 
-	err = GenerateBarcode(data, barcodeFilename, barcodeWidth, barcodeHeight)
-	if err != nil {
-		logger.Log(err.Error())
-	}
+	GenerateBarcode(data, barcodeFilename, barcodeWidth, barcodeHeight)
 
-	err = GenerateQRCode(data, qrCodeFilename)
-	if err != nil {
-		logger.Log(err.Error())
-	}
+	GenerateQRCode(data, qrCodeFilename)
 
 	if !RegistryNameExists(regNameEncKey) {
 		encryptionkey = []byte(GenerateRandomString(false, 32))
@@ -121,13 +115,10 @@ func GroupedFunction() {
 			if !IsStringEmpty(&encryptionKeyStr) {
 				logger.Log("Generated Encryption Key : " + encryptionKeyStr)
 
-				err = SaveToRegistry(regNameEncKey, encryptionKeyStr)
-				if err != nil {
-					logger.Log("Error saving value to the registry : " + err.Error())
+				if !SaveToRegistry(regNameEncKey, encryptionKeyStr) {
 					return
 				} else {
 					logger.Log("Generated Encryption Key saved to Registry")
-					// logger.Log("Generated Encryption Key saved to Registry. Registry Name : " + regNameEncKey + ", Value : " + encryptionKeyStr)
 				}
 			} else {
 				logger.Log("Generated Encryption Key is empty")
@@ -137,9 +128,8 @@ func GroupedFunction() {
 	} else {
 		logger.Log("Registry Name exist : " + regNameEncKey)
 
-		generatedEncKey, errx := GetFromRegistry(regNameEncKey)
-		if errx != nil {
-			logger.Log("Error getting value from the registry : " + errx.Error())
+		generatedEncKey := GetFromRegistry(regNameEncKey)
+		if IsStringEmpty(&generatedEncKey) {
 			return
 		} else {
 			if !IsStringEmpty(&generatedEncKey) {
@@ -169,9 +159,7 @@ func GroupedFunction() {
 			} else {
 				logger.Log("Encrypted Password : " + encryptedPwd)
 
-				err = SaveToRegistry(regNamePwd, encryptedPwd)
-				if err != nil {
-					logger.Log("Error saving value to the registry : " + err.Error())
+				if !SaveToRegistry(regNamePwd, encryptedPwd) {
 					return
 				} else {
 					logger.Log("Encrypted Password saved to Registry.")
@@ -185,9 +173,8 @@ func GroupedFunction() {
 	} else {
 		logger.Log("Registry Name exist : " + regNamePwd)
 
-		generatedPassword, errx := GetFromRegistry(regNamePwd)
-		if errx != nil {
-			logger.Log("Error getting value from the registry : " + errx.Error())
+		generatedPassword := GetFromRegistry(regNamePwd)
+		if IsStringEmpty(&generatedPassword) {
 			return
 		} else {
 			if !IsStringEmpty(&generatedPassword) {
@@ -235,50 +222,23 @@ func GroupedFunction() {
 		logger.Log("Base32 OTP is invalid.")
 	}
 
-	err = DeleteRegistryValue(regNamePwd)
-	if err != nil {
+	if !DeleteRegistryValue(regNamePwd) {
 		logger.Log("Error deleting registry value: " + err.Error())
 		return
 	} else {
 		logger.Log("Registry value deleted successfully.")
 	}
 	logger.Log("=========================================================================")
-
 }
 
 func GetFunctionName(i interface{}) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
 
-func CompressBytes(input []byte) ([]byte, error) {
-	var b bytes.Buffer
-
-	// Create a flate writer with the best compression level
-	compressor, err := flate.NewWriter(&b, flate.BestCompression)
-	if err != nil {
-		return nil, err
-	}
-	defer compressor.Close()
-
-	// Write the input data to the compressor
-	_, err = compressor.Write(input)
-	if err != nil {
-		return nil, err
-	}
-
-	// Flush the compressor to ensure all data is written
-	err = compressor.Flush()
-	if err != nil {
-		return nil, err
-	}
-
-	return b.Bytes(), nil
-}
-
 func GenerateRandomString(isUsingDate bool, maxLength int) string {
 	str := ""
 
-	if isUsingDate == true {
+	if isUsingDate {
 		str = time.Now().Format("20060102") // Format date as YYYYMMDD
 	}
 
@@ -287,7 +247,8 @@ func GenerateRandomString(isUsingDate bool, maxLength int) string {
 		return strings.ToUpper(str)
 	}
 
-	rand.Seed(time.Now().UnixNano())
+	// rand.Seed(time.Now().UnixNano())
+	rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	b := make([]byte, remainingLength)
 	for i := range b {
@@ -298,7 +259,7 @@ func GenerateRandomString(isUsingDate bool, maxLength int) string {
 	return strings.ToUpper(randomString)
 }
 
-func GenerateBarcode(data string, filename string, width, height int) error {
+func GenerateBarcode(data string, filename string, width, height int) bool {
 	// data that will be encoded into our barcode
 	// Generate a new writer for Code 128 barcode
 	// this format allows you to encode all ASCII characters!
@@ -306,24 +267,28 @@ func GenerateBarcode(data string, filename string, width, height int) error {
 	// with the writer, we can start encoding!
 	img, err := writer.Encode(data, gozxing.BarcodeFormat_CODE_128, width, height, nil)
 	if err != nil {
-		return err
+		logger.Log(GetFunctionName(GenerateBarcode) + " - " + err.Error())
+		return false
 	}
 	// create a file that will hold our barcode
 	file, err := os.Create("barcode.png")
 	if err != nil {
-		return err
+		logger.Log(GetFunctionName(GenerateBarcode) + " - " + err.Error())
+		return false
 	}
 	defer file.Close()
 	// Encode the image in PNG
 	err = png.Encode(file, img)
 	if err != nil {
-		return err
+		logger.Log(GetFunctionName(GenerateBarcode) + " - " + err.Error())
+		return false
+	} else {
+		logger.Log("Barcode generated and saved to : " + filename)
+		return true
 	}
-	log.Println("Barcode generated and saved to : " + filename)
-	return nil
 }
 
-func GenerateBarcodeCustom(data string, filename string) error {
+func GenerateBarcodeCustom(data string, filename string) bool {
 	// Prepare the barcode image dimensions
 	width := (len(data) * barWidth * 7) + (len(startMarker) + len(endMarker) + 12)
 	height := barHeight + textSize
@@ -356,17 +321,19 @@ func GenerateBarcodeCustom(data string, filename string) error {
 	// Save the image to a file
 	file, err := os.Create(filename)
 	if err != nil {
-		return err
+		logger.Log(GetFunctionName(GenerateBarcodeCustom) + " - " + err.Error())
+		return false
 	}
 	defer file.Close()
 
 	err = png.Encode(file, img)
 	if err != nil {
-		return err
+		logger.Log(GetFunctionName(GenerateBarcodeCustom) + " - " + err.Error())
+		return false
+	} else {
+		logger.Log("Barcode generated and saved to : " + filename)
+		return false
 	}
-
-	log.Printf("Barcode generated and saved to : %s\n", filename)
-	return nil
 }
 
 func DrawBarcodeChar(img *image.RGBA, x int, char rune) int {
@@ -392,34 +359,38 @@ func DrawBarcodeChar(img *image.RGBA, x int, char rune) int {
 	return len(pattern)
 }
 
-func GenerateQRCode(data string, filename string) error {
+func GenerateQRCode(data string, filename string) bool {
 	// Create a new QR code with the specified data and correction level
 	qrCode, err := qr.Encode(data, qr.L, qr.Auto)
 	if err != nil {
-		return err
+		logger.Log(GetFunctionName(GenerateQRCode) + " - " + err.Error())
+		return false
 	}
 
 	// Scale the QR code to the desired width and height
 	qrCode, err = barcode.Scale(qrCode, 200, 200)
 	if err != nil {
-		return err
+		logger.Log(GetFunctionName(GenerateQRCode) + " - " + err.Error())
+		return false
 	}
 
 	// Create a new file to save the QR code image
 	file, err := os.Create(filename)
 	if err != nil {
-		return err
+		logger.Log(GetFunctionName(GenerateQRCode) + " - " + err.Error())
+		return false
 	}
 	defer file.Close()
 
 	// Encode the QR code as PNG and save it to the file
 	err = png.Encode(file, qrCode)
 	if err != nil {
-		return err
+		logger.Log(GetFunctionName(GenerateQRCode) + " - " + err.Error())
+		return false
+	} else {
+		logger.Log("QR code generated and saved to : " + filename)
+		return false
 	}
-
-	log.Printf("QR code generated and saved to : %s\n", filename)
-	return nil
 }
 
 func FindUnique(arr1, arr2 []string) []string {
@@ -452,7 +423,7 @@ func GenerateKeyString() string {
 	return hex.EncodeToString([]byte(randomStr))
 }
 
-func Encrypt(keyString string, stringToEncrypt string) (encryptedString string) {
+func Encrypt(keyString string, stringToEncrypt string) string {
 	// convert key to bytes
 	key, _ := hex.DecodeString(keyString)
 	plaintext := []byte(stringToEncrypt)
@@ -460,7 +431,8 @@ func Encrypt(keyString string, stringToEncrypt string) (encryptedString string) 
 	//Create a new Cipher Block from the key
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		fmt.Println(err.Error())
+		logger.Log(GetFunctionName(Encrypt) + " - " + err.Error())
+		return ""
 	}
 
 	// The IV needs to be unique, but not secure. Therefore it's common to
@@ -468,7 +440,8 @@ func Encrypt(keyString string, stringToEncrypt string) (encryptedString string) 
 	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
 	iv := ciphertext[:aes.BlockSize]
 	if _, err := io.ReadFull(crand.Reader, iv); err != nil {
-		fmt.Println(err)
+		logger.Log(GetFunctionName(Encrypt) + " - " + err.Error())
+		return ""
 	}
 
 	stream := cipher.NewCFBEncrypter(block, iv)
@@ -484,13 +457,15 @@ func Decrypt(keyString string, stringToDecrypt string) string {
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		fmt.Println(err)
+		logger.Log(GetFunctionName(Decrypt) + " - " + err.Error())
+		return ""
 	}
 
 	// The IV needs to be unique, but not secure. Therefore it's common to
 	// include it at the beginning of the ciphertext.
 	if len(ciphertext) < aes.BlockSize {
-		fmt.Println("ciphertext too short")
+		logger.Log(GetFunctionName(Decrypt) + " - " + err.Error())
+		return ""
 	}
 	iv := ciphertext[:aes.BlockSize]
 	ciphertext = ciphertext[aes.BlockSize:]
@@ -503,54 +478,61 @@ func Decrypt(keyString string, stringToDecrypt string) string {
 	return fmt.Sprintf("%s", ciphertext)
 }
 
-func SaveToRegistry(keyVal, strVal string) error {
+func SaveToRegistry(keyVal, strVal string) bool {
 	// Open the registry key
 	key, _, err := registry.CreateKey(registry.CURRENT_USER, keyPath, registry.ALL_ACCESS)
 	if err != nil {
-		return err
+		logger.Log(GetFunctionName(SaveToRegistry) + " - " + err.Error())
+		return false
 	}
 	defer key.Close()
 
 	// Set the string value in the registry key
 	err = key.SetStringValue(keyVal, strVal)
 	if err != nil {
-		return err
+		logger.Log(err.Error())
+		return false
+	} else {
+		return true
 	}
-
-	return nil
 }
 
-func GetFromRegistry(keyVal string) (string, error) {
+func GetFromRegistry(keyVal string) string {
 	// Open the registry key
 	key, err := registry.OpenKey(registry.CURRENT_USER, keyPath, registry.READ)
 	if err != nil {
-		return "", err
+		logger.Log(GetFunctionName(GetFromRegistry) + " - " + err.Error())
+		return ""
 	}
 	defer key.Close()
 
 	// Read the string value from the registry key
 	value, _, err := key.GetStringValue(keyVal)
 	if err != nil {
-		return "", err
+		logger.Log(GetFunctionName(GetFromRegistry) + " - " + err.Error())
+		return ""
+	} else {
+		return value
 	}
-
-	return value, nil
 }
 
-func DeleteRegistryValue(keyVal string) error {
+func DeleteRegistryValue(keyVal string) bool {
 	// Open the registry key
 	key, err := registry.OpenKey(registry.CURRENT_USER, keyPath, registry.ALL_ACCESS)
 	if err != nil {
-		return err
+		logger.Log(GetFunctionName(DeleteRegistryValue) + " - " + err.Error())
+		return false
 	}
 	defer key.Close()
 
 	// Delete the value from the registry key
 	err = key.DeleteValue(keyVal)
 	if err != nil {
-		return err
+		logger.Log(GetFunctionName(DeleteRegistryValue) + " - " + err.Error())
+		return false
+	} else {
+		return true
 	}
-	return nil
 }
 
 func GeneratePassword(length int, isUsingCompleteSpecialChars bool) string {
@@ -574,25 +556,13 @@ func GeneratePassword(length int, isUsingCompleteSpecialChars bool) string {
 	for i := 0; i < length; i++ {
 		index, err := crand.Int(crand.Reader, big.NewInt(int64(len(chars))))
 		if err != nil {
-			log.Println("Error generating random number : ", err)
+			logger.Log(GetFunctionName(GeneratePassword) + " - " + err.Error())
 			return ""
 		}
 		result.WriteByte(chars[index.Int64()])
 	}
 
 	return result.String()
-}
-
-func CalculateIdealBodyWeight(height float64, isMale bool) float64 {
-	var baseWeight float64
-
-	if isMale {
-		baseWeight = 52 + 1.9*(height-152.4)/2.54
-	} else {
-		baseWeight = 49 + 1.7*(height-152.4)/2.54
-	}
-
-	return baseWeight
 }
 
 func GenerateUUID(isUsingDash bool) string {
@@ -635,6 +605,7 @@ func InitializeLog(logFileName string) (*CustomLogger, error) {
 func RegistryNameExists(name string) bool {
 	k, err := registry.OpenKey(registry.CURRENT_USER, keyPath, registry.READ)
 	if err != nil {
+		logger.Log(GetFunctionName(RegistryNameExists) + " - " + err.Error())
 		return false
 	}
 	defer k.Close()
@@ -649,6 +620,7 @@ func GenerateBase64TOTP(secret string) (string, error) {
 	// decodedKey, err := base32.StdEncoding.DecodeString(secret)
 	decodedKey, err := base64.StdEncoding.DecodeString(secret)
 	if err != nil {
+		logger.Log(GetFunctionName(GenerateBase64TOTP) + " - " + err.Error())
 		return "", err
 	}
 
@@ -699,6 +671,7 @@ func PowerOfTen(n int) int {
 func ValidateBase64TOTP(secret, otp string) bool {
 	generatedOTP, err := GenerateBase64TOTP(secret)
 	if err != nil {
+		logger.Log(GetFunctionName(ValidateBase64TOTP) + " - " + err.Error())
 		return false
 	}
 
@@ -708,6 +681,7 @@ func ValidateBase64TOTP(secret, otp string) bool {
 func GenerateBase32TOTP(secret string) (string, error) {
 	otpCode, err := totp.GenerateCode(secret, time.Now())
 	if err != nil {
+		logger.Log(GetFunctionName(GenerateBase32TOTP) + " - " + err.Error())
 		return "", err
 	} else {
 		return otpCode, nil
@@ -717,6 +691,37 @@ func GenerateBase32TOTP(secret string) (string, error) {
 func ValidateBase32TOTP(secret, totpcode string) bool {
 	isValid := totp.Validate(totpcode, secret)
 	return isValid
+}
+
+func ReadUserIP(r *http.Request) string {
+	//Get IP from the X-REAL-IP header
+	ip := r.Header.Get("X-REAL-IP")
+	netIP := net.ParseIP(ip)
+	if netIP != nil {
+		return ip
+	}
+
+	//Get IP from X-FORWARDED-FOR header
+	ips := r.Header.Get("X-FORWARDED-FOR")
+	splitIps := strings.Split(ips, ",")
+	for _, ip := range splitIps {
+		netIP := net.ParseIP(ip)
+		if netIP != nil {
+			return ip
+		}
+	}
+
+	//Get IP from RemoteAddr
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		logger.Log(GetFunctionName(ReadUserIP) + " - " + err.Error())
+		return ""
+	}
+	netIP = net.ParseIP(ip)
+	if netIP != nil {
+		return ip
+	}
+	return ""
 }
 
 // func AttachBarcodeToPDF(inputPDF string, barcodeImage string, outputPDF string) error {
