@@ -1,10 +1,9 @@
 package main
 
 import (
+	controller "GolangTest/Controllers"
 	gf "GolangTest/Functions"
 	eh "GolangTest/Handlers"
-	"encoding/base32"
-	"encoding/base64"
 	"fmt"
 	"log"
 	"net/http"
@@ -15,178 +14,17 @@ import (
 )
 
 var (
-	logger *gf.CustomLogger
-	err    error
+	logger, err   = gf.InitializeLog("app.log")
+	SIGNATURE_KEY = "aa20fbadd540eee90bc48834ba9be4d842510bd5fd356e78afbc01655369ee88"
 )
 
 func main() {
-	logger, err = gf.InitializeLog("app.log")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	fmt.Println(gf.GenerateKeyString())
 
-	HandleAPIRequests()
-
-	maxLength := 16
-	data := gf.GenerateRandomStringWithDate(true, maxLength)
-	logger.Log("Random string : " + data)
-
-	barcodeWidth := 200
-	barcodeHeight := 75
-	barcodeFilename := "barcode.png"
-	qrCodeFilename := "qrcode.png"
-
-	regNamePwd := "GeneratedPassword"
-	regNameEncKey := "GeneratedEncyptionKey"
-	var encryptionkey []byte
-	var encryptionKeyStr string
-	var generatedPwd string
-	var totp string
-
-	err = gf.GenerateBarcode(data, barcodeFilename, barcodeWidth, barcodeHeight)
-	if err != nil {
-		logger.Log(err.Error())
-	}
-
-	err = gf.GenerateQRCode(data, qrCodeFilename)
-	if err != nil {
-		logger.Log(err.Error())
-	}
-
-	if !gf.RegistryNameExists(regNameEncKey) {
-		encryptionkey, err = gf.GenerateEncryptionKey()
-		if err != nil {
-			logger.Log("Error generating encryption key : " + err.Error())
-			return
-		} else {
-			// encryptionKeyStr = hex.EncodeToString(encryptionkey)
-			encryptionKeyStr = base64.StdEncoding.EncodeToString(encryptionkey)
-
-			if !gf.IsStringEmpty(&encryptionKeyStr) {
-				logger.Log("Generated Encryption Key : " + encryptionKeyStr)
-
-				err = gf.SaveToRegistry(regNameEncKey, encryptionKeyStr)
-				if err != nil {
-					logger.Log("Error saving value to the registry : " + err.Error())
-					return
-				} else {
-					logger.Log("Generated Encryption Key saved to Registry")
-					// logger.Log("Generated Encryption Key saved to Registry. Registry Name : " + regNameEncKey + ", Value : " + encryptionKeyStr)
-				}
-			} else {
-				logger.Log("Generated Encryption Key is empty")
-				return
-			}
-		}
-	} else {
-		logger.Log("Registry Name exist : " + regNameEncKey)
-
-		generatedEncKey, errx := gf.GetFromRegistry(regNameEncKey)
-		if errx != nil {
-			logger.Log("Error getting value from the registry : " + errx.Error())
-			return
-		} else {
-			if !gf.IsStringEmpty(&generatedEncKey) {
-				logger.Log("Value retrieved from the registry : " + generatedEncKey)
-				// encryptionkey = []byte(generatedEncKey)
-				encryptionkey, err = base64.StdEncoding.DecodeString(generatedEncKey)
-				if err != nil {
-					fmt.Println("Base64 decoding error:", err)
-					return
-				}
-			} else {
-				logger.Log("Generated Encryption Key is empty")
-				return
-			}
-		}
-	}
-
-	if !gf.RegistryNameExists(regNamePwd) {
-		generatedPwd = gf.GeneratePassword(12, false)
-		if !gf.IsStringEmpty(&generatedPwd) {
-			logger.Log("Generated Password : " + generatedPwd)
-
-			encryptedPwd, err := gf.Encrypt([]byte(generatedPwd), encryptionkey)
-			if err != nil {
-				logger.Log("Encryption error : " + err.Error())
-				return
-			} else {
-				logger.Log("Encrypted Password : " + encryptedPwd)
-
-				err = gf.SaveToRegistry(regNamePwd, encryptedPwd)
-				if err != nil {
-					logger.Log("Error saving value to the registry : " + err.Error())
-					return
-				} else {
-					logger.Log("Encrypted Password saved to Registry.")
-					// logger.Log("Encrypted Password saved to Registry. Registry Name : " + regNamePwd + ", Value : " + encryptedPwd)
-				}
-			}
-		} else {
-			logger.Log("Generated Password is empty")
-			return
-		}
-	} else {
-		logger.Log("Registry Name exist : " + regNamePwd)
-
-		generatedPassword, errx := gf.GetFromRegistry(regNamePwd)
-		if errx != nil {
-			logger.Log("Error getting value from the registry : " + errx.Error())
-			return
-		} else {
-			if !gf.IsStringEmpty(&generatedPassword) {
-				logger.Log("Value retrieved from the registry : " + generatedPassword)
-
-				decryptedPwd, err := gf.Decrypt(generatedPassword, encryptionkey)
-				if err != nil {
-					logger.Log("Decryption error : " + err.Error())
-					return
-				} else {
-					logger.Log("Decrypted Password : " + decryptedPwd)
-				}
-			} else {
-				logger.Log("Generated Password is empty")
-				return
-			}
-		}
-	}
-
-	totp, err = gf.GenerateBase64TOTP(encryptionKeyStr)
-	if err != nil {
-		logger.Log("Error generating Base64 TOTP : " + err.Error())
-	} else {
-		logger.Log("Generated Base64 TOTP : " + totp)
-	}
-
-	valid := gf.ValidateBase64TOTP(encryptionKeyStr, totp)
-	if valid {
-		logger.Log("Base64 OTP is valid.")
-	} else {
-		logger.Log("Base64 OTP is invalid.")
-	}
-
-	totp, err = gf.GenerateBase32TOTP(base32.StdEncoding.EncodeToString(encryptionkey))
-	if err != nil {
-		logger.Log("Error generating Base32 TOTP : " + err.Error())
-	} else {
-		logger.Log("Generated Base32 TOTP : " + totp)
-	}
-
-	valid = gf.ValidateBase32TOTP(base32.StdEncoding.EncodeToString(encryptionkey), totp)
-	if valid {
-		logger.Log("Base32 OTP is valid.")
-	} else {
-		logger.Log("Base32 OTP is invalid.")
-	}
-
-	logger.Log("=========================================================================")
-	// err = gf.DeleteRegistryValue(registryKey)
-	// if err != nil {
-	// 	fmt.Println("Error deleting registry value:", err)
-	// 	return
-	// }
-	// fmt.Println("Registry value deleted successfully.")
+	enc := gf.Encrypt(keyStr, "001|Yoga|Quote123!")
+	dec := gf.Decrypt(keyStr, enc)
+	fmt.Println(keyStr, enc, dec)
+	// HandleAPIRequests()
 }
 
 // homePage Function
@@ -200,20 +38,42 @@ func HandleAPIRequests() {
 		Try: func() {
 			port := "8080"
 			myRouter := mux.NewRouter()
-			api := myRouter.PathPrefix("/statementAPI").Subrouter()
+
+			api := myRouter.PathPrefix("/MiniAPI").Subrouter()
+			api.Handle("/", controller.MiddlewareAuthorization(http.HandlerFunc(homePage)))
 			api.HandleFunc("/", homePage)
-			// api.HandleFunc("/execproducer", ExecuteProducer).Methods("POST")
+			api.HandleFunc("/GenerateOTP", controller.GenerateOTP).Methods("POST")
 
 			if os.Getenv("ASPNETCORE_PORT") != "" {
 				port = os.Getenv("ASPNETCORE_PORT")
-				fmt.Println(port)
+				logger.Log(port)
 			}
+
+			// cfg := &tls.Config{
+			// 	MinVersion:               tls.VersionTLS12,
+			// 	CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
+			// 	PreferServerCipherSuites: true,
+			// 	CipherSuites: []uint16{
+			// 		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			// 		tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+			// 		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+			// 		tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+			// 	},
+			// }
+
+			// srv := &http.Server{
+			// 	// Addr:         ":443",
+			// 	Handler:      myRouter,
+			// 	TLSConfig:    cfg,
+			// 	TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
+			// }
 
 			timeNow := time.Now().Format("2006-01-02 15:04:05")
 			logger.Log("Start API")
-			fmt.Println(timeNow, "Listening to Port", port+"..")
-			muxWithMiddlewares := http.TimeoutHandler(myRouter, time.Minute*180, "Timeout!")
+			logger.Log(timeNow + " Listening to Port " + port + "..")
+			muxWithMiddlewares := http.TimeoutHandler(myRouter, time.Minute*180, "Request Timeout")
 			log.Fatal(http.ListenAndServe(":"+port, muxWithMiddlewares))
+			// log.Fatal(srv.ListenAndServeTLS("tls.crt", "tls.key"))
 		},
 		Catch: func(e eh.Exception) {
 			ex := fmt.Sprint(e)

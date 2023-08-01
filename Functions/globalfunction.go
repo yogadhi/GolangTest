@@ -8,7 +8,9 @@ import (
 	"crypto/hmac"
 	crand "crypto/rand"
 	"crypto/sha1"
+	"encoding/base32"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"image"
 	"image/color"
@@ -25,6 +27,7 @@ import (
 
 	"github.com/boombuler/barcode"
 	"github.com/boombuler/barcode/qr"
+	"github.com/google/uuid"
 	"github.com/makiuchi-d/gozxing"
 	"github.com/makiuchi-d/gozxing/oned"
 	"github.com/pquerna/otp/totp"
@@ -56,6 +59,8 @@ const (
 )
 
 var (
+	logger, err = InitializeLog("app.log")
+
 	// Mapping of characters to barcode pattern
 	characters = map[rune]string{
 		'0': "0001101",
@@ -73,7 +78,173 @@ var (
 	// Barcode encoding start and end markers
 	startMarker = "101"
 	endMarker   = "101"
+
+	encryptionKey = "8b97bc798333fbb6dc58bf277e3fb8ace4dcfa9b509c830e53bcde9bdab382d3"
 )
+
+func GroupedFunction() {
+	maxLength := 16
+	data := GenerateRandomString(true, maxLength)
+	logger.Log("Random string : " + data)
+
+	barcodeWidth := 200
+	barcodeHeight := 75
+	barcodeFilename := "barcode.png"
+	qrCodeFilename := "qrcode.png"
+
+	regNamePwd := "GeneratedPassword"
+	regNameEncKey := "GeneratedEncyptionKey"
+	var encryptionkey []byte
+	var encryptionKeyStr string
+	var generatedPwd string
+	var totp string
+
+	err = GenerateBarcode(data, barcodeFilename, barcodeWidth, barcodeHeight)
+	if err != nil {
+		logger.Log(err.Error())
+	}
+
+	err = GenerateQRCode(data, qrCodeFilename)
+	if err != nil {
+		logger.Log(err.Error())
+	}
+
+	if !RegistryNameExists(regNameEncKey) {
+		encryptionkey = []byte(GenerateRandomString(false, 32))
+		if encryptionkey == nil {
+			logger.Log("Error generating encryption key : " + err.Error())
+			return
+		} else {
+			// encryptionKeyStr = hex.EncodeToString(encryptionkey)
+			encryptionKeyStr = base64.StdEncoding.EncodeToString(encryptionkey)
+
+			if !IsStringEmpty(&encryptionKeyStr) {
+				logger.Log("Generated Encryption Key : " + encryptionKeyStr)
+
+				err = SaveToRegistry(regNameEncKey, encryptionKeyStr)
+				if err != nil {
+					logger.Log("Error saving value to the registry : " + err.Error())
+					return
+				} else {
+					logger.Log("Generated Encryption Key saved to Registry")
+					// logger.Log("Generated Encryption Key saved to Registry. Registry Name : " + regNameEncKey + ", Value : " + encryptionKeyStr)
+				}
+			} else {
+				logger.Log("Generated Encryption Key is empty")
+				return
+			}
+		}
+	} else {
+		logger.Log("Registry Name exist : " + regNameEncKey)
+
+		generatedEncKey, errx := GetFromRegistry(regNameEncKey)
+		if errx != nil {
+			logger.Log("Error getting value from the registry : " + errx.Error())
+			return
+		} else {
+			if !IsStringEmpty(&generatedEncKey) {
+				logger.Log("Value retrieved from the registry : " + generatedEncKey)
+				// encryptionkey = []byte(generatedEncKey)
+				encryptionkey, err = base64.StdEncoding.DecodeString(generatedEncKey)
+				if err != nil {
+					fmt.Println("Base64 decoding error:", err)
+					return
+				}
+			} else {
+				logger.Log("Generated Encryption Key is empty")
+				return
+			}
+		}
+	}
+
+	if !RegistryNameExists(regNamePwd) {
+		generatedPwd = GeneratePassword(12, false)
+		if !IsStringEmpty(&generatedPwd) {
+			logger.Log("Generated Password : " + generatedPwd)
+
+			encryptedPwd := Encrypt(encryptionKeyStr, generatedPwd)
+			if IsStringEmpty(&encryptedPwd) {
+				logger.Log("Encryption error : " + err.Error())
+				return
+			} else {
+				logger.Log("Encrypted Password : " + encryptedPwd)
+
+				err = SaveToRegistry(regNamePwd, encryptedPwd)
+				if err != nil {
+					logger.Log("Error saving value to the registry : " + err.Error())
+					return
+				} else {
+					logger.Log("Encrypted Password saved to Registry.")
+					// logger.Log("Encrypted Password saved to Registry. Registry Name : " + regNamePwd + ", Value : " + encryptedPwd)
+				}
+			}
+		} else {
+			logger.Log("Generated Password is empty")
+			return
+		}
+	} else {
+		logger.Log("Registry Name exist : " + regNamePwd)
+
+		generatedPassword, errx := GetFromRegistry(regNamePwd)
+		if errx != nil {
+			logger.Log("Error getting value from the registry : " + errx.Error())
+			return
+		} else {
+			if !IsStringEmpty(&generatedPassword) {
+				logger.Log("Value retrieved from the registry : " + generatedPassword)
+
+				decryptedPwd := Decrypt(encryptionKeyStr, generatedPassword)
+				if IsStringEmpty(&decryptedPwd) {
+					logger.Log("Decryption error : " + err.Error())
+					return
+				} else {
+					logger.Log("Decrypted Password : " + decryptedPwd)
+				}
+			} else {
+				logger.Log("Generated Password is empty")
+				return
+			}
+		}
+	}
+
+	totp, err = GenerateBase64TOTP(encryptionKeyStr)
+	if err != nil {
+		logger.Log("Error generating Base64 TOTP : " + err.Error())
+	} else {
+		logger.Log("Generated Base64 TOTP : " + totp)
+	}
+
+	valid := ValidateBase64TOTP(encryptionKeyStr, totp)
+	if valid {
+		logger.Log("Base64 OTP is valid.")
+	} else {
+		logger.Log("Base64 OTP is invalid.")
+	}
+
+	totp, err = GenerateBase32TOTP(base32.StdEncoding.EncodeToString(encryptionkey))
+	if err != nil {
+		logger.Log("Error generating Base32 TOTP : " + err.Error())
+	} else {
+		logger.Log("Generated Base32 TOTP : " + totp)
+	}
+
+	valid = ValidateBase32TOTP(base32.StdEncoding.EncodeToString(encryptionkey), totp)
+	if valid {
+		logger.Log("Base32 OTP is valid.")
+	} else {
+		logger.Log("Base32 OTP is invalid.")
+	}
+
+	err = DeleteRegistryValue(regNamePwd)
+	if err != nil {
+		logger.Log("Error deleting registry value: " + err.Error())
+		return
+	} else {
+		logger.Log("Registry value deleted successfully.")
+	}
+	logger.Log("=========================================================================")
+
+}
 
 func GetFunctionName(i interface{}) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
@@ -104,7 +275,7 @@ func CompressBytes(input []byte) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func GenerateRandomStringWithDate(isUsingDate bool, maxLength int) string {
+func GenerateRandomString(isUsingDate bool, maxLength int) string {
 	str := ""
 
 	if isUsingDate == true {
@@ -276,62 +447,60 @@ func FindUnique(arr1, arr2 []string) []string {
 	return unique
 }
 
-func Encrypt(plainText, key []byte) (string, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return "", err
-	}
-
-	// Generate a random initialization vector (IV)
-	iv := make([]byte, aes.BlockSize)
-	if _, err := io.ReadFull(crand.Reader, iv); err != nil {
-		return "", err
-	}
-
-	// Apply AES encryption in CBC mode
-	ciphertext := make([]byte, aes.BlockSize+len(plainText))
-	ivCopy := ciphertext[:aes.BlockSize]
-	copy(ivCopy, iv)
-	cfb := cipher.NewCFBEncrypter(block, ivCopy)
-	cfb.XORKeyStream(ciphertext[aes.BlockSize:], plainText)
-
-	// Encode the encrypted data in base64
-	encrypted := base64.StdEncoding.EncodeToString(ciphertext)
-	return encrypted, nil
+func GenerateKeyString() string {
+	randomStr := GenerateRandomString(false, 32)
+	return hex.EncodeToString([]byte(randomStr))
 }
 
-func Decrypt(encrypted string, key []byte) (string, error) {
-	ciphertext, err := base64.StdEncoding.DecodeString(encrypted)
+func Encrypt(keyString string, stringToEncrypt string) (encryptedString string) {
+	// convert key to bytes
+	key, _ := hex.DecodeString(keyString)
+	plaintext := []byte(stringToEncrypt)
+
+	//Create a new Cipher Block from the key
+	block, err := aes.NewCipher(key)
 	if err != nil {
-		return "", err
+		fmt.Println(err.Error())
 	}
+
+	// The IV needs to be unique, but not secure. Therefore it's common to
+	// include it at the beginning of the ciphertext.
+	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
+	iv := ciphertext[:aes.BlockSize]
+	if _, err := io.ReadFull(crand.Reader, iv); err != nil {
+		fmt.Println(err)
+	}
+
+	stream := cipher.NewCFBEncrypter(block, iv)
+	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
+
+	// convert to base64
+	return base64.URLEncoding.EncodeToString(ciphertext)
+}
+
+func Decrypt(keyString string, stringToDecrypt string) string {
+	key, _ := hex.DecodeString(keyString)
+	ciphertext, _ := base64.URLEncoding.DecodeString(stringToDecrypt)
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return "", err
+		fmt.Println(err)
 	}
 
+	// The IV needs to be unique, but not secure. Therefore it's common to
+	// include it at the beginning of the ciphertext.
 	if len(ciphertext) < aes.BlockSize {
-		return "", fmt.Errorf("invalid ciphertext length")
+		fmt.Println("ciphertext too short")
 	}
-
 	iv := ciphertext[:aes.BlockSize]
 	ciphertext = ciphertext[aes.BlockSize:]
 
-	// Apply AES decryption in CBC mode
-	cfb := cipher.NewCFBDecrypter(block, iv)
-	cfb.XORKeyStream(ciphertext, ciphertext)
+	stream := cipher.NewCFBDecrypter(block, iv)
 
-	return string(ciphertext), nil
-}
+	// XORKeyStream can work in-place if the two arguments are the same.
+	stream.XORKeyStream(ciphertext, ciphertext)
 
-func GenerateEncryptionKey() ([]byte, error) {
-	key := make([]byte, 32)
-	_, err := crand.Read(key)
-	if err != nil {
-		return nil, err
-	}
-	return key, nil
+	return fmt.Sprintf("%s", ciphertext)
 }
 
 func SaveToRegistry(keyVal, strVal string) error {
@@ -424,6 +593,15 @@ func CalculateIdealBodyWeight(height float64, isMale bool) float64 {
 	}
 
 	return baseWeight
+}
+
+func GenerateUUID(isUsingDash bool) string {
+	uuidWithHyphen := uuid.New()
+	if !isUsingDash {
+		return strings.Replace(uuidWithHyphen.String(), "-", "", -1)
+	} else {
+		return uuidWithHyphen.String()
+	}
 }
 
 type CustomLogger struct {
