@@ -1,14 +1,18 @@
 package globalfunction
 
 import (
+	eh "GolangTest/Handlers"
+	jm "GolangTest/Models/jsonmodel"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
+	"crypto/md5"
 	crand "crypto/rand"
 	"crypto/sha1"
 	"encoding/base32"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/color"
@@ -60,6 +64,7 @@ const (
 
 var (
 	logger, err = InitializeLog("app.log")
+	conf        = OpenConfig("config.json")
 
 	// Mapping of characters to barcode pattern
 	characters = map[rune]string{
@@ -78,9 +83,16 @@ var (
 	// Barcode encoding start and end markers
 	startMarker = "101"
 	endMarker   = "101"
-
-	// encryptionKey = "8b97bc798333fbb6dc58bf277e3fb8ace4dcfa9b509c830e53bcde9bdab382d3"
 )
+
+type CustomLogger struct {
+	file   *os.File
+	logger *log.Logger
+}
+
+func globalfunction() {
+
+}
 
 func GroupedFunction() {
 	maxLength := 16
@@ -574,11 +586,6 @@ func GenerateUUID(isUsingDash bool) string {
 	}
 }
 
-type CustomLogger struct {
-	file   *os.File
-	logger *log.Logger
-}
-
 func (c *CustomLogger) Log(message string) {
 	c.logger.Println(message)
 	log.Println(message)
@@ -614,7 +621,6 @@ func RegistryNameExists(name string) bool {
 	return err == nil
 }
 
-// GenerateBase64TOTP generates a Time-based One-Time Password (TOTP) for the given secret key.
 func GenerateBase64TOTP(secret string) (string, error) {
 	secret = strings.ToUpper(secret)
 	// decodedKey, err := base32.StdEncoding.DecodeString(secret)
@@ -721,6 +727,108 @@ func ReadUserIP(r *http.Request) string {
 	if netIP != nil {
 		return ip
 	}
+	return ""
+}
+
+func OpenConfig(filename string) *jm.Configuration {
+	var result *jm.Configuration
+
+	eh.Block{
+		Try: func() {
+			if _, err := os.Stat(filename); err != nil {
+				objConfig := jm.Configuration{
+					SignatureKey: "aa20fbadd540eee90bc48834ba9be4d842510bd5fd356e78afbc01655369ee88",
+				}
+
+				file, _ := json.MarshalIndent(objConfig, "", " ")
+				err = os.WriteFile("config.json", file, 0644)
+				if err != nil {
+					logger.Log(GetFunctionName(OpenConfig) + " - " + err.Error())
+					return
+				}
+			}
+
+			file, err := os.Open(filename)
+			if err != nil {
+				logger.Log(GetFunctionName(OpenConfig) + " - " + err.Error())
+				return
+			}
+
+			defer file.Close()
+
+			decoder := json.NewDecoder(file)
+
+			err = decoder.Decode(&result)
+			if err != nil {
+				logger.Log(GetFunctionName(OpenConfig) + " - " + err.Error())
+				return
+			}
+		},
+		Catch: func(e eh.Exception) {
+			ex := fmt.Sprint(e)
+			logger.Log(GetFunctionName(OpenConfig) + " - " + ex)
+		},
+	}.Do()
+
+	return result
+}
+
+func GenerateDeviceID() string {
+	// Get hostname
+	hostname, err := os.Hostname()
+	if err != nil {
+		logger.Log(GetFunctionName(GenerateDeviceID) + " - " + err.Error())
+		return ""
+	}
+
+	// Get MAC address
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		logger.Log(GetFunctionName(GenerateDeviceID) + " - " + err.Error())
+		return ""
+	}
+
+	var macAddr string
+	for _, iface := range interfaces {
+		if iface.HardwareAddr != nil {
+			macAddr = iface.HardwareAddr.String()
+			break
+		}
+	}
+
+	// Get current timestamp
+	timestamp := time.Now().Unix()
+
+	// Concatenate the data to create a unique string
+	deviceData := fmt.Sprintf("%s-%s-%d", hostname, macAddr, timestamp)
+
+	// Calculate the MD5 hash of the concatenated data
+	hash := md5.Sum([]byte(deviceData))
+
+	// Convert the hash to a hexadecimal string and return it as the device ID
+	return hex.EncodeToString(hash[:])
+}
+
+func GetMACAddress() string {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		logger.Log(GetFunctionName(GetMACAddress) + " - " + err.Error())
+		return ""
+	}
+
+	for _, iface := range interfaces {
+		// Skip loopback and down interfaces
+		if iface.Flags&net.FlagLoopback != 0 || iface.Flags&net.FlagUp == 0 {
+			continue
+		}
+
+		// Get the MAC address of the first non-loopback and up interface
+		macAddr := iface.HardwareAddr.String()
+		if macAddr != "" {
+			return macAddr
+		}
+	}
+
 	return ""
 }
 

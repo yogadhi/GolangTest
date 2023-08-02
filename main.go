@@ -14,15 +14,24 @@ import (
 )
 
 var (
-	logger, _     = gf.InitializeLog("app.log")
-	SIGNATURE_KEY = "aa20fbadd540eee90bc48834ba9be4d842510bd5fd356e78afbc01655369ee88"
+	logger, _ = gf.InitializeLog("app.log")
+	conf      = gf.OpenConfig("config.json")
 )
 
 func main() {
-	// fmt.Println(gf.GenerateUUID(false))
-	// enc := gf.Encrypt(SIGNATURE_KEY, "e8999895741a4ef49c9ddf62a7409640|Yoga|Quote123!")
-	// dec := gf.Decrypt(SIGNATURE_KEY, enc)
-	// fmt.Println(SIGNATURE_KEY, enc, dec)
+	// bearerToken := "ZRIVxneln3622phoMs13ZY1RAqTpxNFZUgsY7I-4WlLAyUU-GdrYENwLBZq7tgysFA0xKcsQ1IPgw7W9jotV-n4qZ3BUEq9ZFAOUlfRbnWWe48cGcFKPpXe_JJZ_4OHneiK29J3vJrIuADQ="
+	// deviceID := "36860be0a7330597ccde4b7e1babf88e"
+	// userID := "c2d23201-cf18-41c7-9a5f-50a2948b8792"
+	// registerDate := time.Now()
+	// expiredDate := registerDate.AddDate(1, 0, 0)
+	// tokenFormat := userID + "|" + deviceID + "|" + registerDate.Format("2006-01-02") + "|" + expiredDate.Format("2006-01-02")
+	// tokenFormatEnc := gf.Encrypt(conf.SignatureKey, tokenFormat)
+	// tokenFormatDec := gf.Decrypt(conf.SignatureKey, tokenFormatEnc)
+	// fmt.Println("Signature Key:", conf.SignatureKey)
+	// fmt.Println("Token Format Encrypted:", tokenFormatEnc)
+	// fmt.Println("Token Format Decrypted", tokenFormatDec)
+	// fmt.Println(gf.GenerateDeviceID())
+	// fmt.Println(gf.GenerateUUID(true))
 	HandleAPIRequests()
 }
 
@@ -40,6 +49,7 @@ func HandleAPIRequests() {
 			api := myRouter.PathPrefix("/MiniAPI").Subrouter()
 			api.Handle("/", controller.MiddlewareAuthorization(http.HandlerFunc(homePage)))
 			api.Handle("/GenerateOTP", controller.MiddlewareAuthorization(http.HandlerFunc(controller.GenerateOTP)))
+			api.Handle("/ValidateOTP", controller.MiddlewareAuthorization(http.HandlerFunc(controller.ValidateOTP)))
 
 			if os.Getenv("ASPNETCORE_PORT") != "" {
 				port = os.Getenv("ASPNETCORE_PORT")

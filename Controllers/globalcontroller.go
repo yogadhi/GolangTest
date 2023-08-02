@@ -17,9 +17,10 @@ import (
 )
 
 var (
-	logger, _          = gf.InitializeLog("app.log")
-	JWT_SIGNING_METHOD = jwt.SigningMethodHS256
-	SIGNATURE_KEY      = "aa20fbadd540eee90bc48834ba9be4d842510bd5fd356e78afbc01655369ee88"
+	logger, _        = gf.InitializeLog("app.log")
+	conf             = gf.OpenConfig("config.json")
+	JWTSigningMethod = jwt.SigningMethodHS256
+	ObjToken         jsm.Token
 )
 
 func MiddlewareJWTAuthorization(next http.Handler) http.Handler {
@@ -40,11 +41,11 @@ func MiddlewareJWTAuthorization(next http.Handler) http.Handler {
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			if method, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("Signing method invalid")
-			} else if method != JWT_SIGNING_METHOD {
+			} else if method != JWTSigningMethod {
 				return nil, fmt.Errorf("Signing method invalid")
 			}
 
-			return SIGNATURE_KEY, nil
+			return conf.SignatureKey, nil
 		})
 
 		if err != nil {
@@ -79,8 +80,7 @@ func MiddlewareAuthorization(next http.Handler) http.Handler {
 
 		tokenString := strings.Replace(authorizationHeader, "Bearer ", "", -1)
 
-		token := gf.Decrypt(SIGNATURE_KEY, tokenString)
-		fmt.Println(token)
+		token := gf.Decrypt(conf.SignatureKey, tokenString)
 
 		tokenArr := strings.Split(token, "|")
 		if tokenArr == nil {
@@ -88,8 +88,30 @@ func MiddlewareAuthorization(next http.Handler) http.Handler {
 			return
 		}
 
-		if len(tokenArr) <= 1 {
+		if len(tokenArr) != 4 {
 			http.Error(w, "Invalid token", http.StatusBadRequest)
+			return
+		}
+
+		dateLayout := "2006-01-02"
+
+		ObjToken = jsm.Token{
+			UserID:   tokenArr[0],
+			DeviceID: tokenArr[1],
+			RegDate:  tokenArr[2],
+			ExpDate:  tokenArr[3],
+		}
+
+		expDate, err := time.Parse(dateLayout, ObjToken.ExpDate)
+		if err != nil {
+			http.Error(w, "Invalid token", http.StatusBadRequest)
+			return
+		}
+
+		difference := expDate.Sub(time.Now())
+		differenceDay := difference.Hours() / 24
+		if differenceDay <= 0 {
+			http.Error(w, "Account suspended due to expired", http.StatusBadRequest)
 			return
 		}
 
@@ -107,32 +129,32 @@ func GenerateOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req jsm.GenerateOTPReq
-	res := jsm.GenerateOTPRes{
-		TOTP:   "",
-		ErrMsg: "",
-	}
+	var (
+		// req                 jsm.GenerateOTPReq
+		res                 jsm.GenerateOTPRes
+		deviceIDByte        []byte
+		deviceIDByteEncoded string
+		err                 error
+	)
 
 	eh.Block{
 		Try: func() {
-			reqBody, _ := io.ReadAll(r.Body)
-			err := json.Unmarshal(reqBody, &req)
-			if err != nil {
-				logger.Log(gf.GetFunctionName(GenerateOTP) + " - " + err.Error())
-				res.ErrMsg = err.Error()
-				json.NewEncoder(w).Encode(res)
-				return
-			}
-
-			var encryptionkey []byte
-			var encryptionKeyStr string
+			// reqBody, _ := io.ReadAll(r.Body)
+			// err := json.Unmarshal(reqBody, &req)
+			// if err != nil {
+			// 	logger.Log(gf.GetFunctionName(GenerateOTP) + " - " + err.Error())
+			// 	res.ErrMsg = err.Error()
+			// 	json.NewEncoder(w).Encode(res)
+			// 	return
+			// }
 
 			timeStart := time.Now()
 			res.DateReq = timeStart.Format("2006-01-02 15:04:05")
-			encryptionkey = []byte(gf.GenerateRandomString(false, 32))
-			encryptionKeyStr = base64.StdEncoding.EncodeToString(encryptionkey)
-			if !gf.IsStringEmpty(&encryptionKeyStr) {
-				res.TOTP, err = gf.GenerateBase64TOTP(encryptionKeyStr)
+			// deviceIDByte = []byte(req.DeviceID)
+			deviceIDByte = []byte(ObjToken.DeviceID)
+			deviceIDByteEncoded = base64.StdEncoding.EncodeToString(deviceIDByte)
+			if !gf.IsStringEmpty(&deviceIDByteEncoded) {
+				res.TOTP, err = gf.GenerateBase64TOTP(deviceIDByteEncoded)
 				if err != nil {
 					logger.Log(gf.GetFunctionName(GenerateOTP) + " - " + err.Error())
 					res.ErrMsg = err.Error()
@@ -145,6 +167,48 @@ func GenerateOTP(w http.ResponseWriter, r *http.Request) {
 		Catch: func(e eh.Exception) {
 			ex := fmt.Sprint(e)
 			logger.Log(gf.GetFunctionName(GenerateOTP) + " - " + ex)
+		},
+	}.Do()
+}
+
+func ValidateOTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+
+	if r.Method != "POST" {
+		http.Error(w, "Unsupported http method", http.StatusBadRequest)
+		return
+	}
+
+	var (
+		req                 jsm.ValidateOTPReq
+		res                 jsm.ValidateOTPRes
+		deviceIDByte        []byte
+		deviceIDByteEncoded string
+	)
+
+	eh.Block{
+		Try: func() {
+			reqBody, _ := io.ReadAll(r.Body)
+			err := json.Unmarshal(reqBody, &req)
+			if err != nil {
+				logger.Log(gf.GetFunctionName(ValidateOTP) + " - " + err.Error())
+				res.ErrMsg = err.Error()
+				json.NewEncoder(w).Encode(res)
+				return
+			}
+
+			// deviceIDByte = []byte(req.DeviceID)
+			deviceIDByte = []byte(ObjToken.DeviceID)
+			deviceIDByteEncoded = base64.StdEncoding.EncodeToString(deviceIDByte)
+			if !gf.IsStringEmpty(&deviceIDByteEncoded) {
+				res.IsTOTPValid = gf.ValidateBase64TOTP(deviceIDByteEncoded, req.TOTP)
+			}
+
+			json.NewEncoder(w).Encode(res)
+		},
+		Catch: func(e eh.Exception) {
+			ex := fmt.Sprint(e)
+			logger.Log(gf.GetFunctionName(ValidateOTP) + " - " + ex)
 		},
 	}.Do()
 }
