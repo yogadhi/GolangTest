@@ -461,6 +461,40 @@ func Encrypt(keyString string, stringToEncrypt string) string {
 	return base64.URLEncoding.EncodeToString(ciphertext)
 }
 
+func EncryptString(key, plainText string) (string, error) {
+	// Convert the key to bytes
+	keyBytes := []byte(key)
+
+	// Initialize the IV as a 16-byte array filled with zeros
+	iv := make([]byte, aes.BlockSize)
+
+	// Convert the plain text to bytes
+	plainTextBytes := []byte(plainText)
+
+	// Create a new AES cipher block using the key
+	block, err := aes.NewCipher(keyBytes)
+	if err != nil {
+		return "", err
+	}
+
+	// Create a new byte slice to store the encrypted data
+	ciphertext := make([]byte, aes.BlockSize+len(plainTextBytes))
+
+	// Copy the IV to the beginning of the ciphertext slice
+	copy(ciphertext, iv)
+
+	// Create a new AES CFB encrypter
+	stream := cipher.NewCFBEncrypter(block, iv)
+
+	// Encrypt the plain text and store the result in the remaining bytes of the ciphertext slice
+	stream.XORKeyStream(ciphertext[aes.BlockSize:], plainTextBytes)
+
+	// Convert the ciphertext to a base64-encoded string
+	encrypted := base64.StdEncoding.EncodeToString(ciphertext)
+
+	return encrypted, nil
+}
+
 func Decrypt(keyString string, stringToDecrypt string) string {
 	// key, _ := hex.DecodeString(keyString)
 	key, _ := base64.StdEncoding.DecodeString(keyString)
@@ -487,6 +521,35 @@ func Decrypt(keyString string, stringToDecrypt string) string {
 	stream.XORKeyStream(ciphertext, ciphertext)
 
 	return fmt.Sprintf("%s", ciphertext)
+}
+
+func DecryptString(key, cipherText string) (string, error) {
+	// Convert the key to bytes
+	keyBytes := []byte(key)
+
+	// Initialize the IV as a 16-byte array filled with zeros
+	iv := make([]byte, aes.BlockSize)
+
+	// Convert the base64-encoded ciphertext to bytes
+	ciphertext, err := base64.StdEncoding.DecodeString(cipherText)
+	if err != nil {
+		return "", err
+	}
+
+	// Create a new AES cipher block using the key
+	block, err := aes.NewCipher(keyBytes)
+	if err != nil {
+		return "", err
+	}
+
+	// Create a new AES CFB decrypter
+	stream := cipher.NewCFBDecrypter(block, iv)
+
+	// Decrypt the ciphertext and store the result in a new byte slice
+	decrypted := make([]byte, len(ciphertext))
+	stream.XORKeyStream(decrypted, ciphertext)
+
+	return string(decrypted), nil
 }
 
 func SaveToRegistry(keyVal, strVal string) bool {
