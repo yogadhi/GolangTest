@@ -56,10 +56,6 @@ const (
 	digits               = "0123456789"
 	specialChars         = "!@#$%^&*()-_=+,.?/:;{}[]~"
 	completeSpecialChars = "!@#$%^&*()_-+={}[]|:;'<>,.?/`~"
-
-	//TOTP
-	digitCount   = 6
-	timeStepSecs = 30
 )
 
 var (
@@ -436,8 +432,10 @@ func GenerateKeyString() string {
 }
 
 func Encrypt(keyString string, stringToEncrypt string) string {
+
 	// convert key to bytes
-	key, _ := hex.DecodeString(keyString)
+	key, _ := base64.StdEncoding.DecodeString(keyString)
+	// key, _ := hex.DecodeString(keyString)
 	plaintext := []byte(stringToEncrypt)
 
 	//Create a new Cipher Block from the key
@@ -464,7 +462,8 @@ func Encrypt(keyString string, stringToEncrypt string) string {
 }
 
 func Decrypt(keyString string, stringToDecrypt string) string {
-	key, _ := hex.DecodeString(keyString)
+	// key, _ := hex.DecodeString(keyString)
+	key, _ := base64.StdEncoding.DecodeString(keyString)
 	ciphertext, _ := base64.URLEncoding.DecodeString(stringToDecrypt)
 
 	block, err := aes.NewCipher(key)
@@ -630,7 +629,7 @@ func GenerateBase64TOTP(secret string) (string, error) {
 		return "", err
 	}
 
-	interval := time.Now().Unix() / timeStepSecs
+	interval := time.Now().Unix() / int64(conf.TOTPDuration)
 	msg := make([]byte, 8)
 	for i := 7; i >= 0; i-- {
 		msg[i] = byte(interval & 0xFF)
@@ -643,9 +642,9 @@ func GenerateBase64TOTP(secret string) (string, error) {
 
 	offset := hmacResult[len(hmacResult)-1] & 0x0F
 	truncatedHash := BinaryToInt(hmacResult[offset:offset+4]) & 0x7FFFFFFF
-	otp := truncatedHash % PowerOfTen(digitCount)
+	otp := truncatedHash % PowerOfTen(conf.TOTPDigitCount)
 
-	return fmt.Sprintf("%0*d", digitCount, otp), nil
+	return fmt.Sprintf("%0*d", conf.TOTPDigitCount, otp), nil
 }
 
 func BinaryToInt(data []byte) int {
@@ -736,8 +735,13 @@ func OpenConfig(filename string) *jm.Configuration {
 	eh.Block{
 		Try: func() {
 			if _, err := os.Stat(filename); err != nil {
+				// SignatureKey:   "aa20fbadd540eee90bc48834ba9be4d842510bd5fd356e78afbc01655369ee88",
 				objConfig := jm.Configuration{
-					SignatureKey: "aa20fbadd540eee90bc48834ba9be4d842510bd5fd356e78afbc01655369ee88",
+					SignatureKey:   "UjUyWVZGQldQNVFJUzJOSkJPT0FZWUlMTU5EM0FUWkc=",
+					TOTPDigitCount: 6,
+					TOTPDuration:   30,
+					Port:           "8080",
+					TLSPort:        "443",
 				}
 
 				file, _ := json.MarshalIndent(objConfig, "", " ")
@@ -830,6 +834,44 @@ func GetMACAddress() string {
 	}
 
 	return ""
+}
+
+func ExtractHTTPAuth(w http.ResponseWriter, r *http.Request) *jm.Token {
+	var ObjToken jm.Token
+
+	eh.Block{
+		Try: func() {
+			authorizationHeader := r.Header.Get("Authorization")
+			if !strings.Contains(authorizationHeader, "Bearer") {
+				return
+			}
+
+			tokenString := strings.Replace(authorizationHeader, "Bearer ", "", -1)
+			token := Decrypt(conf.SignatureKey, tokenString)
+
+			tokenArr := strings.Split(token, "|")
+			if tokenArr == nil {
+				return
+			}
+
+			if len(tokenArr) != 5 {
+				return
+			}
+
+			ObjToken = jm.Token{
+				SecretKey: tokenArr[0],
+				UserID:    tokenArr[1],
+				DeviceID:  tokenArr[2],
+				RegDate:   tokenArr[3],
+				ExpDate:   tokenArr[4],
+			}
+		},
+		Catch: func(e eh.Exception) {
+			ex := fmt.Sprint(e)
+			logger.Log(GetFunctionName(ExtractHTTPAuth) + " - " + ex)
+		},
+	}.Do()
+	return &ObjToken
 }
 
 // func AttachBarcodeToPDF(inputPDF string, barcodeImage string, outputPDF string) error {

@@ -20,7 +20,7 @@ var (
 	logger, _        = gf.InitializeLog("app.log")
 	conf             = gf.OpenConfig("config.json")
 	JWTSigningMethod = jwt.SigningMethodHS256
-	ObjToken         jsm.Token
+	SecretKey        = "Quote123!"
 )
 
 func MiddlewareJWTAuthorization(next http.Handler) http.Handler {
@@ -69,37 +69,19 @@ func MiddlewareJWTAuthorization(next http.Handler) http.Handler {
 
 func MiddlewareAuthorization(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		dateLayout := "2006-01-02"
 		IPAddress := gf.ReadUserIP(r)
 		logger.Log(IPAddress + " - " + r.URL.Path)
 
-		authorizationHeader := r.Header.Get("Authorization")
-		if !strings.Contains(authorizationHeader, "Bearer") {
+		ObjToken := gf.ExtractHTTPAuth(w, r)
+		if ObjToken == nil {
 			http.Error(w, "Invalid token", http.StatusBadRequest)
 			return
 		}
 
-		tokenString := strings.Replace(authorizationHeader, "Bearer ", "", -1)
-
-		token := gf.Decrypt(conf.SignatureKey, tokenString)
-
-		tokenArr := strings.Split(token, "|")
-		if tokenArr == nil {
+		if ObjToken.SecretKey != SecretKey {
 			http.Error(w, "Invalid token", http.StatusBadRequest)
 			return
-		}
-
-		if len(tokenArr) != 4 {
-			http.Error(w, "Invalid token", http.StatusBadRequest)
-			return
-		}
-
-		dateLayout := "2006-01-02"
-
-		ObjToken = jsm.Token{
-			UserID:   tokenArr[0],
-			DeviceID: tokenArr[1],
-			RegDate:  tokenArr[2],
-			ExpDate:  tokenArr[3],
 		}
 
 		expDate, err := time.Parse(dateLayout, ObjToken.ExpDate)
@@ -115,10 +97,13 @@ func MiddlewareAuthorization(next http.Handler) http.Handler {
 			return
 		}
 
-		//can add custom logic validation here
-
 		next.ServeHTTP(w, r)
 	})
+}
+
+func HomePage(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "GoLang Minimal API")
+	fmt.Println("Endpoint Hit: homePage")
 }
 
 func GenerateOTP(w http.ResponseWriter, r *http.Request) {
@@ -130,7 +115,6 @@ func GenerateOTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var (
-		// req                 jsm.GenerateOTPReq
 		res                 jsm.GenerateOTPRes
 		deviceIDByte        []byte
 		deviceIDByteEncoded string
@@ -139,18 +123,10 @@ func GenerateOTP(w http.ResponseWriter, r *http.Request) {
 
 	eh.Block{
 		Try: func() {
-			// reqBody, _ := io.ReadAll(r.Body)
-			// err := json.Unmarshal(reqBody, &req)
-			// if err != nil {
-			// 	logger.Log(gf.GetFunctionName(GenerateOTP) + " - " + err.Error())
-			// 	res.ErrMsg = err.Error()
-			// 	json.NewEncoder(w).Encode(res)
-			// 	return
-			// }
-
 			timeStart := time.Now()
 			res.DateReq = timeStart.Format("2006-01-02 15:04:05")
 			// deviceIDByte = []byte(req.DeviceID)
+			ObjToken := gf.ExtractHTTPAuth(w, r)
 			deviceIDByte = []byte(ObjToken.DeviceID)
 			deviceIDByteEncoded = base64.StdEncoding.EncodeToString(deviceIDByte)
 			if !gf.IsStringEmpty(&deviceIDByteEncoded) {
@@ -197,7 +173,7 @@ func ValidateOTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			// deviceIDByte = []byte(req.DeviceID)
+			ObjToken := gf.ExtractHTTPAuth(w, r)
 			deviceIDByte = []byte(ObjToken.DeviceID)
 			deviceIDByteEncoded = base64.StdEncoding.EncodeToString(deviceIDByte)
 			if !gf.IsStringEmpty(&deviceIDByteEncoded) {
@@ -209,6 +185,88 @@ func ValidateOTP(w http.ResponseWriter, r *http.Request) {
 		Catch: func(e eh.Exception) {
 			ex := fmt.Sprint(e)
 			logger.Log(gf.GetFunctionName(ValidateOTP) + " - " + ex)
+		},
+	}.Do()
+}
+
+func GoEncrypt(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+
+	if r.Method != "POST" {
+		http.Error(w, "Unsupported http method", http.StatusBadRequest)
+		return
+	}
+
+	var (
+		req jsm.GoEncryptReq
+		res jsm.GoEncryptRes
+	)
+
+	eh.Block{
+		Try: func() {
+			reqBody, _ := io.ReadAll(r.Body)
+			err := json.Unmarshal(reqBody, &req)
+			if err != nil {
+				logger.Log(gf.GetFunctionName(GoEncrypt) + " - " + err.Error())
+				json.NewEncoder(w).Encode(res)
+				return
+			}
+
+			if req.PlainText == "" {
+				return
+			}
+
+			if req.Key == "" {
+				return
+			}
+
+			res.EncryptedText = gf.Encrypt(req.Key, req.PlainText)
+			json.NewEncoder(w).Encode(res)
+		},
+		Catch: func(e eh.Exception) {
+			ex := fmt.Sprint(e)
+			logger.Log(gf.GetFunctionName(GoEncrypt) + " - " + ex)
+		},
+	}.Do()
+}
+
+func GoDecrypt(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+
+	if r.Method != "POST" {
+		http.Error(w, "Unsupported http method", http.StatusBadRequest)
+		return
+	}
+
+	var (
+		req jsm.GoDecryptReq
+		res jsm.GoDecryptRes
+	)
+
+	eh.Block{
+		Try: func() {
+			reqBody, _ := io.ReadAll(r.Body)
+			err := json.Unmarshal(reqBody, &req)
+			if err != nil {
+				logger.Log(gf.GetFunctionName(GoEncrypt) + " - " + err.Error())
+				json.NewEncoder(w).Encode(res)
+				return
+			}
+
+			if req.EncryptedText == "" {
+				return
+			}
+
+			if req.Key == "" {
+				return
+			}
+
+			res.DecryptedText = gf.Decrypt(req.Key, req.EncryptedText)
+			json.NewEncoder(w).Encode(res)
+		},
+		Catch: func(e eh.Exception) {
+			ex := fmt.Sprint(e)
+			logger.Log(gf.GetFunctionName(GoEncrypt) + " - " + ex)
 		},
 	}.Do()
 }

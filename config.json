@@ -1,3 +1,7 @@
 {
- "SignatureKey": "aa20fbadd540eee90bc48834ba9be4d842510bd5fd356e78afbc01655369ee88"
+ "SignatureKey": "UjUyWVZGQldQNVFJUzJOSkJPT0FZWUlMTU5EM0FUWkc=",
+ "TOTPDigitCount":6,
+ "TOTPDuration":30,
+ "Port":"8080",
+ "TLSPort":"443"
 }

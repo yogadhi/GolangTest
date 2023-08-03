@@ -2,7 +2,10 @@ package jsonmodel
 
 type Configuration struct {
 	SignatureKey   string `json:"SignatureKey"`
-	TOTPDigitCount int
+	TOTPDigitCount int    `json:"TOTPDigitCount"`
+	TOTPDuration   int    `json:"TOTPDuration"`
+	Port           string `json:"Port"`
+	TLSPort        string `json:"TLSPort"`
 }
 type GenerateOTPReq struct {
 	DeviceID string `json:"DeviceID"`
@@ -26,8 +29,27 @@ type ValidateOTPRes struct {
 }
 
 type Token struct {
-	UserID   string `json:"UserID"`
-	DeviceID string `json:"DeviceID"`
-	RegDate  string `json:"RegDate"`
-	ExpDate  string `json:"ExpDate"`
+	SecretKey string `json:"SecretKey"`
+	UserID    string `json:"UserID"`
+	DeviceID  string `json:"DeviceID"`
+	RegDate   string `json:"RegDate"`
+	ExpDate   string `json:"ExpDate"`
+}
+
+type GoEncryptReq struct {
+	Key       string `json:"Key"`
+	PlainText string `json:"PlainText"`
+}
+
+type GoEncryptRes struct {
+	EncryptedText string `json:"EncryptedText"`
+}
+
+type GoDecryptReq struct {
+	Key           string `json:"Key"`
+	EncryptedText string `json:"EncryptedText"`
+}
+
+type GoDecryptRes struct {
+	DecryptedText string `json:"DecryptedText"`
 }

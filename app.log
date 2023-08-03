@@ -53,3 +53,100 @@
 2023/08/02 15:30:56 2023-08-02 15:30:56 Listening to Port 8080..
 2023/08/02 15:31:03 ::1 - /MiniAPI/GenerateOTP
 2023/08/02 15:31:07 ::1 - /MiniAPI/ValidateOTP
+2023/08/03 10:38:51 Start API
+2023/08/03 10:38:51 2023-08-03 10:38:51 Listening to Port 8080..
+2023/08/03 10:39:00 ::1 - /MiniAPI/GenerateOTP
+2023/08/03 10:39:03 ::1 - /MiniAPI/ValidateOTP
+2023/08/03 10:39:10 ::1 - /MiniAPI/ValidateOTP
+2023/08/03 10:56:07 GolangTest/Functions.Encrypt - crypto/aes: invalid key size 0
+2023/08/03 10:56:07 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 0
+2023/08/03 10:57:03 GolangTest/Functions.Encrypt - crypto/aes: invalid key size 0
+2023/08/03 10:57:03 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 0
+2023/08/03 10:57:36 GolangTest/Functions.Encrypt - crypto/aes: invalid key size 0
+2023/08/03 10:57:36 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 0
+2023/08/03 10:58:51 GolangTest/Functions.Encrypt - crypto/aes: invalid key size 0
+2023/08/03 10:58:51 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 0
+2023/08/03 11:00:12 GolangTest/Functions.Encrypt - crypto/aes: invalid key size 0
+2023/08/03 11:00:12 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 0
+2023/08/03 11:01:44 GolangTest/Functions.Encrypt - crypto/aes: invalid key size 0
+2023/08/03 11:01:44 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 0
+2023/08/03 11:02:28 GolangTest/Functions.Encrypt - crypto/aes: invalid key size 0
+2023/08/03 11:02:28 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 0
+2023/08/03 11:04:30 GolangTest/Functions.Encrypt - crypto/aes: invalid key size 0
+2023/08/03 11:04:30 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 0
+2023/08/03 11:11:56 GolangTest/Functions.Encrypt - crypto/aes: invalid key size 12
+2023/08/03 11:11:56 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 0
+2023/08/03 11:12:55 GolangTest/Functions.Encrypt - crypto/aes: invalid key size 0
+2023/08/03 11:12:55 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 0
+2023/08/03 11:13:56 GolangTest/Functions.Encrypt - crypto/aes: invalid key size 0
+2023/08/03 11:13:56 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 0
+2023/08/03 11:15:35 GolangTest/Functions.Encrypt - crypto/aes: invalid key size 0
+2023/08/03 11:15:35 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 0
+2023/08/03 11:17:48 GolangTest/Functions.Encrypt - crypto/aes: invalid key size 0
+2023/08/03 11:17:48 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 0
+2023/08/03 11:18:38 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 0
+2023/08/03 11:40:11 GolangTest/Functions.GenerateBase64TOTP - illegal base64 data at input byte 4
+2023/08/03 11:40:35 GolangTest/Functions.GenerateBase64TOTP - illegal base64 data at input byte 4
+2023/08/03 13:20:37 GolangTest/Functions.Encrypt - crypto/aes: invalid key size 48
+2023/08/03 13:20:37 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 48
+2023/08/03 13:20:55 GolangTest/Functions.Encrypt - crypto/aes: invalid key size 48
+2023/08/03 13:20:55 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 48
+2023/08/03 13:21:31 GolangTest/Functions.Encrypt - crypto/aes: invalid key size 48
+2023/08/03 13:21:31 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 48
+2023/08/03 13:24:30 GolangTest/Functions.Encrypt - crypto/aes: invalid key size 9
+2023/08/03 13:24:30 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 9
+2023/08/03 13:24:40 GolangTest/Functions.Encrypt - crypto/aes: invalid key size 8
+2023/08/03 13:24:40 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 8
+2023/08/03 13:25:01 GolangTest/Functions.Encrypt - crypto/aes: invalid key size 21
+2023/08/03 13:25:01 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 21
+2023/08/03 13:25:20 GolangTest/Functions.Encrypt - crypto/aes: invalid key size 19
+2023/08/03 13:25:20 GolangTest/Functions.Decrypt - crypto/aes: invalid key size 19
+2023/08/03 13:34:25 Start API
+2023/08/03 13:34:25 2023-08-03 13:34:25 Listening to Port 8080..
+2023/08/03 13:34:44 ::1 - /MiniAPI/GenerateOTP
+2023/08/03 13:34:51 ::1 - /MiniAPI/ValidateOTP
+2023/08/03 13:34:59 ::1 - /MiniAPI/ValidateOTP
+2023/08/03 13:52:29 Start API
+2023/08/03 13:52:29 2023-08-03 13:52:29 Listening to Port 8080..
+2023/08/03 13:52:39 ::1 - /MiniAPI/GenerateOTP
+2023/08/03 13:52:46 ::1 - /MiniAPI/ValidateOTP
+2023/08/03 13:52:51 ::1 - /MiniAPI/ValidateOTP
+2023/08/03 14:10:27 Start API
+2023/08/03 14:10:27 2023-08-03 14:10:27 Listening to Port 8080..
+2023/08/03 14:10:35 ::1 - /MiniAPI/GenerateOTP
+2023/08/03 14:13:00 Start API
+2023/08/03 14:13:00 2023-08-03 14:13:00 Listening to Port 8080..
+2023/08/03 14:13:17 ::1 - /MiniAPI/GenerateOTP
+2023/08/03 14:14:16 Start API
+2023/08/03 14:14:16 2023-08-03 14:14:16 Listening to Port 8080..
+2023/08/03 14:14:20 ::1 - /MiniAPI/GenerateOTP
+2023/08/03 14:14:26 ::1 - /MiniAPI/GenerateOTP
+2023/08/03 14:14:52 ::1 - /MiniAPI/GenerateOTP
+2023/08/03 14:15:07 ::1 - /MiniAPI/GenerateOTP
+2023/08/03 14:18:40 Start API
+2023/08/03 14:18:40 2023-08-03 14:18:40 Listening to Port 8080..
+2023/08/03 14:18:46 ::1 - /MiniAPI/GenerateOTP
+2023/08/03 14:19:00 ::1 - /MiniAPI/ValidateOTP
+2023/08/03 15:21:04 Start API
+2023/08/03 15:21:04 2023-08-03 15:21:04 Listening to Port 8080..
+2023/08/03 15:22:17 ::1 - /MiniAPI/Encrypt
+2023/08/03 15:22:37 ::1 - /MiniAPI/Encrypt
+2023/08/03 15:24:02 Start API
+2023/08/03 15:24:02 2023-08-03 15:24:02 Listening to Port 8080..
+2023/08/03 15:24:11 ::1 - /MiniAPI/Encrypt
+2023/08/03 15:24:35 Start API
+2023/08/03 15:24:35 2023-08-03 15:24:35 Listening to Port 8080..
+2023/08/03 15:24:42 ::1 - /MiniAPI/Encrypt
+2023/08/03 15:27:04 Start API
+2023/08/03 15:27:04 2023-08-03 15:27:04 Listening to Port 8080..
+2023/08/03 15:28:27 ::1 - /MiniAPI/Decrypt
+2023/08/03 15:30:20 Start API
+2023/08/03 15:30:20 2023-08-03 15:30:20 Listening to Port 8080..
+2023/08/03 15:30:24 ::1 - /MiniAPI/GoEncrypt
+2023/08/03 15:30:26 ::1 - /MiniAPI/GoEncrypt
+2023/08/03 15:30:27 ::1 - /MiniAPI/GoEncrypt
+2023/08/03 15:30:46 ::1 - /MiniAPI/GoDecrypt
+2023/08/03 15:31:00 ::1 - /MiniAPI/GoDecrypt
+2023/08/03 15:31:28 ::1 - /MiniAPI/GoDecrypt
+2023/08/03 15:31:35 ::1 - /MiniAPI/GenerateOTP
+2023/08/03 15:31:37 ::1 - /MiniAPI/ValidateOTP
