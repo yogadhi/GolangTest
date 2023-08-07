@@ -25,32 +25,35 @@ func main() {
 }
 
 func DummyFunc() {
-	// // randomStr := gf.GenerateRandomString(false, 32)
-	// // randomByte := []byte(randomStr)
-	// // encodedRandomByte := base64.StdEncoding.EncodeToString(randomByte)
-	// // conf.SignatureKey = encodedRandomByte //"UlhOVlNYSFhVUk82WlgzTzRRTlpHTFhVMFJROUhDTkg="
+	// randomStr := gf.GenerateRandomString(false, 32)
+	// randomByte := []byte(randomStr)
+	// encodedRandomByte := base64.StdEncoding.EncodeToString(randomByte)
+	// conf.SignatureKey = encodedRandomByte //"UlhOVlNYSFhVUk82WlgzTzRRTlpHTFhVMFJROUhDTkg="
 
-	// bearerToken := "vIu76Vsh_wLRg_51npQwDWv4MUA20OMQSFteFvOQfDrs6fmbN3en2iHjqzYiuH2neQPn6RtFgCPPzHZTBrHcadt4nBx9LXkIIjuLQkVgejkqdjnaNz5BfrgxviAKc6uN-LU4MKKCkkIPEvcb8VznGbD7ukw2"
-	// deviceID := "36860be0a7330597ccde4b7e1babf88e"
-	// userID := "c2d23201-cf18-41c7-9a5f-50a2948b8792"
-	// registerDate := time.Now()
-	// expiredDate := registerDate.AddDate(1, 0, 0)
-	// tokenFormat := "Quote123!|" + userID + "|" + deviceID + "|" + registerDate.Format("2006-01-02") + "|" + expiredDate.Format("2006-01-02")
-	// tokenFormatEnc := gf.Encrypt(conf.SignatureKey, tokenFormat)
-	// tokenFormatDec := gf.Decrypt(conf.SignatureKey, tokenFormatEnc)
-	// fmt.Println("Signature Key:", conf.SignatureKey)
-	// fmt.Println("Token Format Encrypted:", tokenFormatEnc)
-	// fmt.Println("Token Format Decrypted:", tokenFormatDec)
-	// fmt.Println("Device ID:", gf.GenerateDeviceID())
-	// fmt.Println("UUID:", gf.GenerateUUID(true))
-	// fmt.Println("Bearer Token:", bearerToken)
-	// totp, _ := gf.GenerateBase64TOTP(conf.SignatureKey)
-	// fmt.Println("TOTP:", totp)
+	bearerToken := "vIu76Vsh_wLRg_51npQwDWv4MUA20OMQSFteFvOQfDrs6fmbN3en2iHjqzYiuH2neQPn6RtFgCPPzHZTBrHcadt4nBx9LXkIIjuLQkVgejkqdjnaNz5BfrgxviAKc6uN-LU4MKKCkkIPEvcb8VznGbD7ukw2"
+	deviceID := "36860be0a7330597ccde4b7e1babf88e"
+	userID := "C2D23201-CF18-41C7-9A5F-50A2948B8792"
+	registerDate := time.Now()
+	expiredDate := registerDate.AddDate(1, 0, 0)
+	tokenFormat := "Quote123!|" + userID + "|" + deviceID + "|" + registerDate.Format("2006-01-02") + "|" + expiredDate.Format("2006-01-02")
+
+	tokenFormatEnc := gf.Encrypt(conf.SignatureKey, tokenFormat)
+	tokenFormatDec := gf.Decrypt(conf.SignatureKey, tokenFormatEnc)
+
+	fmt.Println("Signature Key:", conf.SignatureKey)
+	fmt.Println("Token Format Encrypted:", tokenFormatEnc)
+	fmt.Println("Token Format Decrypted:", tokenFormatDec)
+	fmt.Println("Device ID:", gf.GenerateDeviceID())
+	fmt.Println("UUID:", gf.GenerateUUID(true))
+	fmt.Println("Bearer Token:", bearerToken)
+
+	totp, _ := gf.GenerateBase64TOTP(conf.SignatureKey)
+	fmt.Println("TOTP:", totp)
 
 	// enc, _ := gf.EncryptString("b14ca5898a4e4133bbce2ea2315a1916", "c2d23201-cf18-41c7-9a5f-50a2948b8792|36860be0a7330597ccde4b7e1babf88e|2023-08-03|2024-08-03")
-	dec, _ := gf.DecryptString("b14ca5898a4e4133bbce2ea2315a1916", "eyRBhO7wrS2H0/Ydbtsw1XO4IIzJnoQAB9b65lKUaj84iPqXckZTGXrFiE1p35/uRVTIuVgxkRXPGyux3c0ZEmAzgb2sRvK5GbzYh6K7pCyhjf7eZRRYY/MFC5+XPL0Z")
+	// dec, _ := gf.DecryptString("b14ca5898a4e4133bbce2ea2315a1916", enc)
 	// fmt.Println(enc)
-	fmt.Println(dec)
+	// fmt.Println("asdasdda", dec)
 }
 
 func HandleAPIRequests(isUsingTLS bool) {

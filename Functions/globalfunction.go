@@ -640,12 +640,16 @@ func GeneratePassword(length int, isUsingCompleteSpecialChars bool) string {
 }
 
 func GenerateUUID(isUsingDash bool) string {
+	res := ""
 	uuidWithHyphen := uuid.New()
+
 	if !isUsingDash {
-		return strings.Replace(uuidWithHyphen.String(), "-", "", -1)
+		res = strings.Replace(uuidWithHyphen.String(), "-", "", -1)
 	} else {
-		return uuidWithHyphen.String()
+		res = uuidWithHyphen.String()
 	}
+	res = strings.ToUpper(res)
+	return res
 }
 
 func (c *CustomLogger) Log(message string) {
@@ -873,7 +877,7 @@ func GenerateDeviceID() string {
 	hash := md5.Sum([]byte(deviceData))
 
 	// Convert the hash to a hexadecimal string and return it as the device ID
-	return hex.EncodeToString(hash[:])
+	return strings.ToUpper(hex.EncodeToString(hash[:]))
 }
 
 func GetMACAddress() string {
