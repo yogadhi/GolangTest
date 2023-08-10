@@ -20,8 +20,8 @@ var (
 )
 
 func main() {
-	DummyFunc()
-	// HandleAPIRequests(false)
+	// DummyFunc()
+	HandleAPIRequests(false)
 }
 
 func DummyFunc() {
