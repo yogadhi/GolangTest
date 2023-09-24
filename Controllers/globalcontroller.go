@@ -71,7 +71,7 @@ func MiddlewareAuthorization(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		dateLayout := "2006-01-02"
 		IPAddress := gf.ReadUserIP(r)
-		logger.Log(IPAddress + " - " + r.URL.Path)
+		logger.Log(IPAddress + " - " + r.URL.Path + " - " + r.Header.Get("User-Agent") + " - " + r.Header.Get("X-Forwarded-For"))
 
 		ObjToken := gf.ExtractHTTPAuth(w, r)
 		if ObjToken == nil {
@@ -125,7 +125,6 @@ func GenerateOTP(w http.ResponseWriter, r *http.Request) {
 		Try: func() {
 			timeStart := time.Now()
 			res.DateReq = timeStart.Format("2006-01-02 15:04:05")
-			// deviceIDByte = []byte(req.DeviceID)
 			ObjToken := gf.ExtractHTTPAuth(w, r)
 			deviceIDByte = []byte(ObjToken.DeviceID)
 			deviceIDByteEncoded = base64.StdEncoding.EncodeToString(deviceIDByte)

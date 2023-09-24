@@ -19,6 +19,7 @@ import (
 	"image/png"
 	"io"
 	"log"
+	"math"
 	"math/big"
 	"math/rand"
 	"net"
@@ -26,6 +27,7 @@ import (
 	"os"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -88,6 +90,46 @@ type CustomLogger struct {
 
 func globalfunction() {
 
+}
+
+func DummyFunc() {
+	// randomStr := GenerateRandomString(false, 32)
+	// randomByte := []byte(randomStr)
+	// encodedRandomByte := base64.StdEncoding.EncodeToString(randomByte)
+	// conf.SignatureKey = encodedRandomByte //"UlhOVlNYSFhVUk82WlgzTzRRTlpHTFhVMFJROUhDTkg="
+
+	// bearerToken := "vIu76Vsh_wLRg_51npQwDWv4MUA20OMQSFteFvOQfDrs6fmbN3en2iHjqzYiuH2neQPn6RtFgCPPzHZTBrHcadt4nBx9LXkIIjuLQkVgejkqdjnaNz5BfrgxviAKc6uN-LU4MKKCkkIPEvcb8VznGbD7ukw2"
+	// deviceID := "36860be0a7330597ccde4b7e1babf88e"
+	// userID := "C2D23201-CF18-41C7-9A5F-50A2948B8792"
+	// registerDate := time.Now()
+	// expiredDate := registerDate.AddDate(1, 0, 0)
+	// tokenFormat := "Quote123!|" + userID + "|" + deviceID + "|" + registerDate.Format("2006-01-02") + "|" + expiredDate.Format("2006-01-02")
+
+	// tokenFormatEnc := Encrypt(conf.SignatureKey, tokenFormat)
+	// tokenFormatDec := Decrypt(conf.SignatureKey, tokenFormatEnc)
+
+	// fmt.Println("Signature Key:", conf.SignatureKey)
+	// fmt.Println("Token Format Encrypted:", tokenFormatEnc)
+	// fmt.Println("Token Format Decrypted:", tokenFormatDec)
+	// fmt.Println("Device ID:", GenerateDeviceID())
+	// fmt.Println("UUID:", GenerateUUID(true))
+	// fmt.Println("Bearer Token:", bearerToken)
+
+	// totp, _ := GenerateBase64TOTP(conf.SignatureKey)
+	// fmt.Println("TOTP:", totp)
+
+	// x, y := CalculatePercentageChange(8500000, 8900000)
+	// fmt.Println(x, y)
+
+	var a float64 = 8500000
+	x := CalculateFromPercentage(5, a)
+	y := FormatCurrency(a + x)
+	fmt.Println(y)
+
+	// enc, _ := EncryptString("b14ca5898a4e4133bbce2ea2315a1916", "c2d23201-cf18-41c7-9a5f-50a2948b8792|36860be0a7330597ccde4b7e1babf88e|2023-08-03|2024-08-03")
+	// dec, _ := DecryptString("b14ca5898a4e4133bbce2ea2315a1916", enc)
+	// fmt.Println(enc)
+	// fmt.Println("asdasdda", dec)
 }
 
 func GroupedFunction() {
@@ -240,7 +282,20 @@ func GroupedFunction() {
 }
 
 func GetFunctionName(i interface{}) string {
-	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
+	res := ""
+
+	strFuncName := runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
+	if strFuncName != "" {
+		if strings.Contains(strFuncName, ".") {
+			listFuncName := strings.Split(strFuncName, ".")
+			if listFuncName != nil {
+				if len(listFuncName) > 0 {
+					res = listFuncName[len(listFuncName)-1]
+				}
+			}
+		}
+	}
+	return res
 }
 
 func GenerateRandomString(isUsingDate bool, maxLength int) string {
@@ -939,6 +994,29 @@ func ExtractHTTPAuth(w http.ResponseWriter, r *http.Request) *jm.Token {
 		},
 	}.Do()
 	return &ObjToken
+}
+
+func CalculatePercentageChange(oldValue, newValue float64) (roundVal, realVal float64) {
+	res := ((newValue - oldValue) / oldValue) * 100
+	return RoundWithParam(res, 2), res
+}
+
+func RoundToTwoDigits(number float64) float64 {
+	return math.Round(number*100) / 100
+}
+
+func RoundWithParam(number float64, digits int) float64 {
+	scale := math.Pow(10, float64(digits))
+	return math.Round(number*scale) / scale
+}
+
+func CalculateFromPercentage(percentage, value float64) float64 {
+	return (percentage / 100) * value
+}
+
+func FormatCurrency(amount float64) string {
+	roundedAmount := strconv.FormatFloat(amount, 'f', 2, 64)
+	return roundedAmount
 }
 
 // func AttachBarcodeToPDF(inputPDF string, barcodeImage string, outputPDF string) error {
