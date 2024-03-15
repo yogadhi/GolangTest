@@ -92,46 +92,6 @@ func globalfunction() {
 
 }
 
-func DummyFunc() {
-	// randomStr := GenerateRandomString(false, 32)
-	// randomByte := []byte(randomStr)
-	// encodedRandomByte := base64.StdEncoding.EncodeToString(randomByte)
-	// conf.SignatureKey = encodedRandomByte //"UlhOVlNYSFhVUk82WlgzTzRRTlpHTFhVMFJROUhDTkg="
-
-	// bearerToken := "vIu76Vsh_wLRg_51npQwDWv4MUA20OMQSFteFvOQfDrs6fmbN3en2iHjqzYiuH2neQPn6RtFgCPPzHZTBrHcadt4nBx9LXkIIjuLQkVgejkqdjnaNz5BfrgxviAKc6uN-LU4MKKCkkIPEvcb8VznGbD7ukw2"
-	// deviceID := "36860be0a7330597ccde4b7e1babf88e"
-	// userID := "C2D23201-CF18-41C7-9A5F-50A2948B8792"
-	// registerDate := time.Now()
-	// expiredDate := registerDate.AddDate(1, 0, 0)
-	// tokenFormat := "Quote123!|" + userID + "|" + deviceID + "|" + registerDate.Format("2006-01-02") + "|" + expiredDate.Format("2006-01-02")
-
-	// tokenFormatEnc := Encrypt(conf.SignatureKey, tokenFormat)
-	// tokenFormatDec := Decrypt(conf.SignatureKey, tokenFormatEnc)
-
-	// fmt.Println("Signature Key:", conf.SignatureKey)
-	// fmt.Println("Token Format Encrypted:", tokenFormatEnc)
-	// fmt.Println("Token Format Decrypted:", tokenFormatDec)
-	// fmt.Println("Device ID:", GenerateDeviceID())
-	// fmt.Println("UUID:", GenerateUUID(true))
-	// fmt.Println("Bearer Token:", bearerToken)
-
-	// totp, _ := GenerateBase64TOTP(conf.SignatureKey)
-	// fmt.Println("TOTP:", totp)
-
-	// x, y := CalculatePercentageChange(8500000, 8900000)
-	// fmt.Println(x, y)
-
-	var a float64 = 8500000
-	x := CalculateFromPercentage(5, a)
-	y := FormatCurrency(a + x)
-	fmt.Println(y)
-
-	// enc, _ := EncryptString("b14ca5898a4e4133bbce2ea2315a1916", "c2d23201-cf18-41c7-9a5f-50a2948b8792|36860be0a7330597ccde4b7e1babf88e|2023-08-03|2024-08-03")
-	// dec, _ := DecryptString("b14ca5898a4e4133bbce2ea2315a1916", enc)
-	// fmt.Println(enc)
-	// fmt.Println("asdasdda", dec)
-}
-
 func GroupedFunction() {
 	maxLength := 16
 	data := GenerateRandomString(true, maxLength)
@@ -1057,3 +1017,23 @@ func FormatCurrency(amount float64) string {
 // 	log.Printf("Barcode attached to PDF and saved to: %s\n", outputPDF)
 // 	return nil
 // }
+
+func DownloadFile(filepath string, url string) error {
+	// Get the data
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Create the file
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	// Write the body to file
+	_, err = io.Copy(out, resp.Body)
+	return err
+}
