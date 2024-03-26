@@ -5,7 +5,6 @@ import (
 	gf "GolangTest/Functions"
 	eh "GolangTest/Handlers"
 	"crypto/tls"
-	"encoding/base64"
 	"fmt"
 	"log"
 	"net/http"
@@ -22,11 +21,11 @@ var (
 )
 
 func main() {
-	err := gf.DownloadFile("C:\\WinSvc\\DownloadedFiles\\SSE_Securities.csv", "https://www.hkex.com.hk/-/media/HKEX-Market/Mutual-Market/Stock-Connect/Eligible-Stocks/View-All-Eligible-Securities/SSE_Securities.csv")
-	if err != nil {
-		logger.Log(gf.GetFunctionName(main) + " " + err.Error())
-	}
-	// DummyFunc()
+	// err := gf.DownloadFile("C:\\WinSvc\\DownloadedFiles\\SSE_Securities.csv", "https://www.hkex.com.hk/-/media/HKEX-Market/Mutual-Market/Stock-Connect/Eligible-Stocks/View-All-Eligible-Securities/SSE_Securities.csv")
+	// if err != nil {
+	// 	logger.Log(gf.GetFunctionName(main) + " " + err.Error())
+	// }
+	DummyFunc()
 	// HandleAPIRequests(false)
 }
 
@@ -95,36 +94,26 @@ func HandleAPIRequests(isUsingTLS bool) {
 }
 
 func DummyFunc() {
-	randomStr := gf.GenerateRandomString(false, 32)
-	randomByte := []byte(randomStr)
-	encodedRandomByte := base64.StdEncoding.EncodeToString(randomByte)
-	conf.SignatureKey = encodedRandomByte //"UlhOVlNYSFhVUk82WlgzTzRRTlpHTFhVMFJROUhDTkg="
+	x, y := gf.CalculatePercentageChange(8500000, 8900000)
+	fmt.Println("Rounded Value  :", x)
+	fmt.Println("Real Value     :", y)
 
-	bearerToken := "vIu76Vsh_wLRg_51npQwDWv4MUA20OMQSFteFvOQfDrs6fmbN3en2iHjqzYiuH2neQPn6RtFgCPPzHZTBrHcadt4nBx9LXkIIjuLQkVgejkqdjnaNz5BfrgxviAKc6uN-LU4MKKCkkIPEvcb8VznGbD7ukw2"
-	deviceID := "36860be0a7330597ccde4b7e1babf88e"
-	userID := "C2D23201-CF18-41C7-9A5F-50A2948B8792"
+	conf.SignatureKey = gf.GenerateSignatureKey()
+	fmt.Println("Signature Key  :", conf.SignatureKey)
+
+	totp, _ := gf.GenerateBase64TOTP(conf.SignatureKey)
+	fmt.Println("TOTP           :", totp)
+
+	deviceID := gf.GenerateDeviceID()
+	userID := gf.GenerateUUID(true)
 	registerDate := time.Now()
 	expiredDate := registerDate.AddDate(1, 0, 0)
 	tokenFormat := "Quote123!|" + userID + "|" + deviceID + "|" + registerDate.Format("2006-01-02") + "|" + expiredDate.Format("2006-01-02")
+	fmt.Println("Token Format   :", tokenFormat)
 
-	tokenFormatEnc := gf.Encrypt(conf.SignatureKey, tokenFormat)
-	tokenFormatDec := gf.Decrypt(conf.SignatureKey, tokenFormatEnc)
+	enc := gf.Encrypt(conf.SignatureKey, tokenFormat)
+	fmt.Println("Bearer Token   :", enc)
 
-	fmt.Println("Signature Key:", conf.SignatureKey)
-	fmt.Println("Token Format Encrypted:", tokenFormatEnc)
-	fmt.Println("Token Format Decrypted:", tokenFormatDec)
-	fmt.Println("Device ID:", gf.GenerateDeviceID())
-	fmt.Println("UUID:", gf.GenerateUUID(true))
-	fmt.Println("Bearer Token:", bearerToken)
-
-	totp, _ := gf.GenerateBase64TOTP(conf.SignatureKey)
-	fmt.Println("TOTP:", totp)
-
-	x, y := gf.CalculatePercentageChange(8500000, 8900000)
-	fmt.Println(x, y)
-
-	enc, _ := gf.EncryptString("b14ca5898a4e4133bbce2ea2315a1916", "c2d23201-cf18-41c7-9a5f-50a2948b8792|36860be0a7330597ccde4b7e1babf88e|2023-08-03|2024-08-03")
-	dec, _ := gf.DecryptString("b14ca5898a4e4133bbce2ea2315a1916", enc)
-	fmt.Println(enc)
-	fmt.Println("asdasdda", dec)
+	dec := gf.Decrypt(conf.SignatureKey, enc)
+	fmt.Println("Decrypt Result :", dec)
 }

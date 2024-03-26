@@ -279,7 +279,8 @@ func GenerateRandomString(isUsingDate bool, maxLength int) string {
 	}
 
 	randomString := fmt.Sprintf("%s%s", str, string(b))
-	return strings.ToUpper(randomString)
+	// return strings.ToUpper(randomString)
+	return randomString
 }
 
 func GenerateBarcode(data string, filename string, width, height int) bool {
@@ -441,39 +442,50 @@ func FindUnique(arr1, arr2 []string) []string {
 	return unique
 }
 
-func GenerateKeyString() string {
-	randomStr := GenerateRandomString(false, 32)
-	return hex.EncodeToString([]byte(randomStr))
-}
+// func GenerateKeyString() string {
+// 	randomStr := GenerateRandomString(false, 32)
+// 	return hex.EncodeToString([]byte(randomStr))
+// }
 
 func Encrypt(keyString string, stringToEncrypt string) string {
+	res := ""
 
-	// convert key to bytes
-	key, _ := base64.StdEncoding.DecodeString(keyString)
-	// key, _ := hex.DecodeString(keyString)
-	plaintext := []byte(stringToEncrypt)
+	eh.Block{
+		Try: func() {
+			// convert key to bytes
+			key, _ := base64.StdEncoding.DecodeString(keyString)
+			// key, _ := hex.DecodeString(keyString)
+			plaintext := []byte(stringToEncrypt)
 
-	//Create a new Cipher Block from the key
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		logger.Log(GetFunctionName(Encrypt) + " - " + err.Error())
-		return ""
-	}
+			//Create a new Cipher Block from the key
+			block, err := aes.NewCipher(key)
+			if err != nil {
+				logger.Log(GetFunctionName(Encrypt) + " - " + err.Error())
+				return
+			}
 
-	// The IV needs to be unique, but not secure. Therefore it's common to
-	// include it at the beginning of the ciphertext.
-	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
-	iv := ciphertext[:aes.BlockSize]
-	if _, err := io.ReadFull(crand.Reader, iv); err != nil {
-		logger.Log(GetFunctionName(Encrypt) + " - " + err.Error())
-		return ""
-	}
+			// The IV needs to be unique, but not secure. Therefore it's common to
+			// include it at the beginning of the ciphertext.
+			ciphertext := make([]byte, aes.BlockSize+len(plaintext))
+			iv := ciphertext[:aes.BlockSize]
+			if _, err := io.ReadFull(crand.Reader, iv); err != nil {
+				logger.Log(GetFunctionName(Encrypt) + " - " + err.Error())
+				return
+			}
 
-	stream := cipher.NewCFBEncrypter(block, iv)
-	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
+			stream := cipher.NewCFBEncrypter(block, iv)
+			stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
 
-	// convert to base64
-	return base64.URLEncoding.EncodeToString(ciphertext)
+			// convert to base64
+			res = base64.URLEncoding.EncodeToString(ciphertext)
+		},
+		Catch: func(e eh.Exception) {
+			ex := fmt.Sprint(e)
+			logger.Log(GetFunctionName(Encrypt) + " - " + ex)
+		},
+	}.Do()
+
+	return res
 }
 
 func EncryptString(key, plainText string) (string, error) {
@@ -663,7 +675,7 @@ func GenerateUUID(isUsingDash bool) string {
 	} else {
 		res = uuidWithHyphen.String()
 	}
-	res = strings.ToUpper(res)
+	// res = strings.ToUpper(res)
 	return res
 }
 
@@ -892,7 +904,8 @@ func GenerateDeviceID() string {
 	hash := md5.Sum([]byte(deviceData))
 
 	// Convert the hash to a hexadecimal string and return it as the device ID
-	return strings.ToUpper(hex.EncodeToString(hash[:]))
+	// return strings.ToUpper(hex.EncodeToString(hash[:]))
+	return hex.EncodeToString(hash[:])
 }
 
 func GetMACAddress() string {
@@ -1036,4 +1049,11 @@ func DownloadFile(filepath string, url string) error {
 	// Write the body to file
 	_, err = io.Copy(out, resp.Body)
 	return err
+}
+
+func GenerateSignatureKey() string {
+	randomStr := GenerateRandomString(true, 32)
+	randomByte := []byte(randomStr)
+	encodedRandomByte := base64.StdEncoding.EncodeToString(randomByte)
+	return encodedRandomByte
 }

@@ -107,22 +107,22 @@ func HomePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func GenerateOTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
-
-	if r.Method != "POST" {
-		http.Error(w, "Unsupported http method", http.StatusBadRequest)
-		return
-	}
-
-	var (
-		res                 jsm.GenerateOTPRes
-		deviceIDByte        []byte
-		deviceIDByteEncoded string
-		err                 error
-	)
-
 	eh.Block{
 		Try: func() {
+			w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+
+			if r.Method != "POST" {
+				http.Error(w, "Unsupported http method", http.StatusBadRequest)
+				return
+			}
+
+			var (
+				res                 jsm.GenerateOTPRes
+				deviceIDByte        []byte
+				deviceIDByteEncoded string
+				err                 error
+			)
+
 			timeStart := time.Now()
 			res.DateReq = timeStart.Format("2006-01-02 15:04:05")
 			ObjToken := gf.ExtractHTTPAuth(w, r)
@@ -147,22 +147,22 @@ func GenerateOTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func ValidateOTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
-
-	if r.Method != "POST" {
-		http.Error(w, "Unsupported http method", http.StatusBadRequest)
-		return
-	}
-
-	var (
-		req                 jsm.ValidateOTPReq
-		res                 jsm.ValidateOTPRes
-		deviceIDByte        []byte
-		deviceIDByteEncoded string
-	)
-
 	eh.Block{
 		Try: func() {
+			w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+
+			if r.Method != "POST" {
+				http.Error(w, "Unsupported http method", http.StatusBadRequest)
+				return
+			}
+
+			var (
+				req                 jsm.ValidateOTPReq
+				res                 jsm.ValidateOTPRes
+				deviceIDByte        []byte
+				deviceIDByteEncoded string
+			)
+
 			reqBody, _ := io.ReadAll(r.Body)
 			err := json.Unmarshal(reqBody, &req)
 			if err != nil {
@@ -189,20 +189,21 @@ func ValidateOTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func GoEncrypt(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
-
-	if r.Method != "POST" {
-		http.Error(w, "Unsupported http method", http.StatusBadRequest)
-		return
-	}
-
-	var (
-		req jsm.GoEncryptReq
-		res jsm.GoEncryptRes
-	)
-
 	eh.Block{
 		Try: func() {
+
+			w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+
+			if r.Method != "POST" {
+				http.Error(w, "Unsupported http method", http.StatusBadRequest)
+				return
+			}
+
+			var (
+				req jsm.GoEncryptReq
+				res jsm.GoEncryptRes
+			)
+
 			reqBody, _ := io.ReadAll(r.Body)
 			err := json.Unmarshal(reqBody, &req)
 			if err != nil {
@@ -230,20 +231,20 @@ func GoEncrypt(w http.ResponseWriter, r *http.Request) {
 }
 
 func GoDecrypt(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
-
-	if r.Method != "POST" {
-		http.Error(w, "Unsupported http method", http.StatusBadRequest)
-		return
-	}
-
-	var (
-		req jsm.GoDecryptReq
-		res jsm.GoDecryptRes
-	)
-
 	eh.Block{
 		Try: func() {
+			w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+
+			if r.Method != "POST" {
+				http.Error(w, "Unsupported http method", http.StatusBadRequest)
+				return
+			}
+
+			var (
+				req jsm.GoDecryptReq
+				res jsm.GoDecryptRes
+			)
+
 			reqBody, _ := io.ReadAll(r.Body)
 			err := json.Unmarshal(reqBody, &req)
 			if err != nil {
